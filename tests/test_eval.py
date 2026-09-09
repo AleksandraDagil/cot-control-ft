@@ -223,3 +223,36 @@ class TestAnswerNormalisation:
     )
     def test_reasonif_matching(self, got, correct, expected):
         assert ev.score_answer("reasonif", got, correct) is expected
+
+
+class TestMetaRateDenominator:
+    """meta_rate is scored over rollouts with usable reasoning, not over gradeable ones."""
+
+    def test_denominator_excludes_unscored(self):
+        graded = [
+            _g("1", compliant=True, meta=True),
+            _g("2", compliant=True, meta=False),
+            _g("3", compliant=False, meta=None),  # no usable reasoning: not meta-scored
+        ]
+        m = ev.aggregate(graded)
+        assert m.n_meta_scored == 2 and m.meta_rate == 0.5
+        assert m.n_gradeable == 3, "all three are still compliance-gradeable"
+
+    def test_meta_counted_even_when_compliance_ungradeable(self):
+        # ignore_question whose judge call failed: meta scored, compliance not.
+        m = ev.aggregate([_g("1", compliant=None, meta=True)])
+        assert m.n_gradeable == 0 and m.n_meta_scored == 1 and m.meta_rate == 1.0
+
+    def test_no_meta_scored(self):
+        assert ev.aggregate([_g("1", compliant=True, meta=None)]).meta_rate is None
+
+
+class TestTokenMedian:
+    def test_errored_rollouts_excluded_from_median(self):
+        good = [_g(str(i), compliant=True) for i in range(3)]  # 100 tokens each
+        bad = ev.Graded(
+            sample_id="err", mode="m", suite="cotcontrol", compliant=None, correct=None,
+            meta_discussion=None, think_status="missing", truncated=False,
+            completion_tokens=0, reasoning_words=0, error="boom",
+        )
+        assert ev.aggregate(good + [bad]).to_dict()["median_completion_tokens"] == 100

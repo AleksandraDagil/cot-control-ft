@@ -275,6 +275,7 @@ class Metric:
     n_answered: int = 0
     n_correct: int = 0
     n_meta: int = 0
+    n_meta_scored: int = 0
     n_truncated: int = 0
     n_error: int = 0
     think_status: dict = field(default_factory=dict)
@@ -290,7 +291,11 @@ class Metric:
 
     @property
     def meta_rate(self) -> float | None:
-        return self.n_meta / self.n_gradeable if self.n_gradeable else None
+        # Denominator is the rollouts meta-discussion was actually scored on (those with
+        # usable reasoning), which is not the same set as the compliance-gradeable ones:
+        # an ignore_question rollout with no reasoning is compliance-False but unscorable
+        # for meta, and one whose judge call failed is the reverse.
+        return self.n_meta / self.n_meta_scored if self.n_meta_scored else None
 
     @property
     def truncation_rate(self) -> float | None:
@@ -315,6 +320,7 @@ class Metric:
             "accuracy": self.accuracy,
             "n_answered": self.n_answered,
             "meta_rate": self.meta_rate,
+            "n_meta_scored": self.n_meta_scored,
             "truncation_rate": self.truncation_rate,
             "gradeable_rate": self.gradeable_rate,
             "n_error": self.n_error,
@@ -332,12 +338,14 @@ def aggregate(graded: Iterable[Graded]) -> Metric:
             m.n_error += 1
         if g.truncated:
             m.n_truncated += 1
-        m.completion_tokens.append(g.completion_tokens)
+        if not g.error:  # an errored rollout reports 0 tokens and would drag the median down
+            m.completion_tokens.append(g.completion_tokens)
         if g.compliant is not None:
             m.n_gradeable += 1
             m.n_compliant += int(g.compliant)
-        if g.meta_discussion:
-            m.n_meta += 1
+        if g.meta_discussion is not None:
+            m.n_meta_scored += 1
+            m.n_meta += int(g.meta_discussion)
         if g.correct is not None:
             m.n_answered += 1
             m.n_correct += int(g.correct)

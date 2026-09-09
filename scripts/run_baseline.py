@@ -31,6 +31,7 @@ load_dotenv(REPO / ".env")
 from cotctl import eval as ev  # noqa: E402
 from cotctl.datasets import load_reasonif  # noqa: E402
 from cotctl.inference import RolloutStore, SamplingParams, VLLMClient, run_sync, wait_for_server  # noqa: E402
+from cotctl.metr_reference import comparison_table  # noqa: E402
 from cotctl.prompts import COTCONTROL_MODES  # noqa: E402
 
 log = logging.getLogger("baseline")
@@ -151,7 +152,7 @@ def main() -> int:
     (out_dir / "run_config.json").write_text(json.dumps(run_config, indent=2) + "\n", encoding="utf-8")
 
     # --- inference -------------------------------------------------------
-    summaries = {}
+    summaries, graded_by_suite = {}, {}
     for suite, reqs in requests.items():
         store = RolloutStore(stores[suite])
         if not args.grade_only:
@@ -165,6 +166,7 @@ def main() -> int:
             judged = judge_ignore_question(rollouts, cfg, out_dir / "judge_cache.jsonl")
 
         graded = ev.grade_all(rollouts, judged)
+        graded_by_suite[suite] = graded
         summaries[suite] = ev.write_summary(graded, out_dir, f"{args.label}_{suite}", run_config)
         print()
         print(ev.markdown_table(ev.by_mode(graded), f"{args.label} — {suite}"))
@@ -172,7 +174,27 @@ def main() -> int:
     (out_dir / f"summary_{args.label}.json").write_text(
         json.dumps({"config": run_config, "suites": summaries}, indent=2) + "\n", encoding="utf-8"
     )
-    print(f"wrote {out_dir}")
+
+    # --- deliverable: side-by-side with METR's published numbers ---------
+    # CoTControl is the unweighted mean over the 9 modes (METR's headline); ReasonIF is the
+    # micro rate over all 300 prompts, with the per-instruction macro reported alongside.
+    cc = (summaries.get("cotcontrol") or {}).get("macro_compliance")
+    rif_sum = summaries.get("reasonif") or {}
+    rif = (rif_sum.get("overall") or {}).get("compliance")
+    table = comparison_table(cc, rif, label=f"Qwen3.5-9B (ours, {args.label})")
+    report = [f"# {args.label} vs METR", "", table, ""]
+    if rif_sum.get("macro_compliance") is not None:
+        report += [
+            f"ReasonIF macro (unweighted over the 6 instruction types): "
+            f"{100 * rif_sum['macro_compliance']:.1f} %",
+            "",
+        ]
+    for suite, graded in graded_by_suite.items():
+        report += [f"## {suite}", "", ev.markdown_table(ev.by_mode(graded), ""), ""]
+    (out_dir / f"report_{args.label}.md").write_text("\n".join(report), encoding="utf-8")
+    print()
+    print(table)
+    print(f"\nwrote {out_dir}")
     return 0
 
 
