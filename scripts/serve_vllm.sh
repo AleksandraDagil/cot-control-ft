@@ -28,7 +28,8 @@ ARGS=(
   --reasoning-parser qwen3
   --enable-lora
   --max-lora-rank 32
-  --disable-log-requests
+  --max-loras 1
+  --no-enable-log-requests
 )
 
 if [[ -n "$ADAPTER" ]]; then
