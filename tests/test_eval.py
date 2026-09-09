@@ -205,3 +205,21 @@ class TestPairedBootstrap:
     def test_no_overlap(self):
         out = ev.paired_bootstrap([_g("a", compliant=True)], [_g("b", compliant=True)], n_boot=50)
         assert out["n_ids"] == 0 and out["diff"] is None
+
+
+class TestAnswerNormalisation:
+    @pytest.mark.parametrize(
+        "got,correct,expected",
+        [
+            ("<answer>4</answer>", "4", True),
+            ("<answer>14</answer>", "4", False),          # no substring fallback
+            ("<answer>4</answer>", "44", False),
+            ("<answer>$18</answer>", "18", True),
+            ("<answer>\\boxed{204}</answer>", "204", True),
+            ("<answer>\\text{Paris}</answer>", "Paris", True),
+            ("<answer> 3.5 </answer>", "3.5", True),
+            ("<answer>C</answer>", "c", True),
+        ],
+    )
+    def test_reasonif_matching(self, got, correct, expected):
+        assert ev.score_answer("reasonif", got, correct) is expected
