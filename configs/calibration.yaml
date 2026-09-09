@@ -20,6 +20,9 @@ sampling:
 calibration:
   percentile: 20
   # Rollouts per ReasonIF question (all 300 questions, instruction-stripped prompt).
-  repeats: 1
+  # 3 gives ~160-220 length samples per source (sources hold 53-73 questions), which a 20th
+  # percentile needs to be stable; at 1 rollout each the smaller sources are visibly noisy.
+  # 300 x 3 = 900 rollouts, matching PLAN.md's calibration compute estimate.
+  repeats: 3
   # Truncated rollouts have a censored word count and would bias the percentile down.
   drop_truncated: true
