@@ -40,3 +40,31 @@ uv pip install -U "transformers @ git+https://github.com/huggingface/transformer
 uv pip install -U vllm --extra-index-url https://wheels.vllm.ai/nightly
 cp .env.example .env   # OPENAI_API_KEY
 ```
+
+### Actual install on skynet 3 (2026-09-09)
+
+The `--torch-backend=cu128` recipe above does not resolve: the current vLLM nightly requires
+`torch==2.13.0`, which is not on the cu128 index. PyPI's torch 2.13.0 is a **CUDA 13** build,
+which the host driver (595.84 / CUDA 13.2) supports, so let vLLM pick the torch version:
+
+```bash
+uv pip install -e ".[dev,gpu]"
+uv pip install -U vllm --extra-index-url https://wheels.vllm.ai/nightly \
+  --prerelease=allow --index-strategy unsafe-best-match
+uv pip install -U "transformers @ git+https://github.com/huggingface/transformers"  # last
+```
+
+Resulting stack: torch 2.13.0+cu130, vLLM 0.29.0, transformers 5.18.0.dev0, peft 0.20.0,
+`torch.cuda.get_device_capability() == (12, 0)`.
+
+## Running an eval
+
+```bash
+scripts/serve_vllm.sh &                      # base model, or: scripts/serve_vllm.sh path/to/adapter
+python scripts/calibrate_number_words.py     # once per model -> data/word_limits_<model>.json
+python scripts/run_baseline.py --label base --word-limits data/word_limits_Qwen3.5-9B.json
+```
+
+Both are resumable: rollouts are keyed by `(sample_id, mode)` in a JSONL and judge verdicts are
+cached by prompt hash, so an interrupted run continues where it stopped. `--grade-only` re-grades
+stored rollouts without any inference.

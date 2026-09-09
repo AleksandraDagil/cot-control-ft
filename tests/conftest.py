@@ -16,6 +16,9 @@ REF = Path(os.environ.get("COTCTL_REF_DIR", REPO / "ref"))
 def _load_module(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)
+    # Register before exec: dataclasses in the loaded module resolve annotations via
+    # sys.modules[cls.__module__], which is None for a module that was never registered.
+    sys.modules[name] = mod
     spec.loader.exec_module(mod)
     return mod
 
@@ -34,6 +37,35 @@ def upstream_cc_prompts():
     if not p.exists():
         pytest.skip(f"upstream CoTControl clone not found at {p}")
     return _load_module("cc_prompts", p)
+
+
+@pytest.fixture(scope="session")
+def upstream_cc_llm():
+    p = REF / "CoTControl" / "CoT-Control-QA" / "llm.py"
+    if not p.exists():
+        pytest.skip(f"upstream CoTControl clone not found at {p}")
+    pytest.importorskip("dotenv")
+    return _load_module("cc_llm", p)
+
+
+@pytest.fixture(scope="session")
+def upstream_cc_judge():
+    """`grade_compliance_csv.py` holds the ignore_question / meta-discussion judge prompts."""
+    p = REF / "CoTControl" / "CoT-Control-QA" / "grade_compliance_csv.py"
+    if not p.exists():
+        pytest.skip(f"upstream CoTControl clone not found at {p}")
+    pytest.importorskip("pandas")
+    sys.path.insert(0, str(p.parent))  # it does `from grading import ...`
+    return _load_module("cc_judge", p)
+
+
+@pytest.fixture(scope="session")
+def upstream_reasonif_utils():
+    p = REF / "reasonIF" / "src" / "utils.py"
+    if not p.exists():
+        pytest.skip(f"upstream reasonIF clone not found at {p}")
+    pytest.importorskip("pandas")
+    return _load_module("rif_utils", p)
 
 
 @pytest.fixture(scope="session")

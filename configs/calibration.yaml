@@ -1,0 +1,25 @@
+# number_words calibration: unconstrained reasoning length per ReasonIF source.
+# METR/ReasonIF set the per-source limit to the 20th percentile of the model's own
+# unconstrained reasoning word count, so the constraint is a real but achievable squeeze.
+model:
+  name: Qwen/Qwen3.5-9B
+  served_name: Qwen/Qwen3.5-9B
+  adapter: null
+
+server:
+  base_url: http://localhost:8000/v1
+  concurrency: 64
+
+sampling:
+  temperature: 1.0
+  max_tokens: 16384
+  top_p: 0.95
+  top_k: 20
+  seed: null
+
+calibration:
+  percentile: 20
+  # Rollouts per ReasonIF question (all 300 questions, instruction-stripped prompt).
+  repeats: 1
+  # Truncated rollouts have a censored word count and would bias the percentile down.
+  drop_truncated: true
