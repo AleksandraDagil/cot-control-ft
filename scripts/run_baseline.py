@@ -31,7 +31,7 @@ load_dotenv(REPO / ".env")
 from cotctl import eval as ev  # noqa: E402
 from cotctl.datasets import load_reasonif  # noqa: E402
 from cotctl.inference import RolloutStore, SamplingParams, VLLMClient, run_sync, wait_for_server  # noqa: E402
-from cotctl.metr_reference import comparison_table  # noqa: E402
+from cotctl.analysis.metr import comparison_table, sanity_check  # noqa: E402
 from cotctl.prompts import COTCONTROL_MODES  # noqa: E402
 
 log = logging.getLogger("baseline")
@@ -181,8 +181,13 @@ def main() -> int:
     cc = (summaries.get("cotcontrol") or {}).get("macro_compliance")
     rif_sum = summaries.get("reasonif") or {}
     rif = (rif_sum.get("overall") or {}).get("compliance")
-    table = comparison_table(cc, rif, label=f"Qwen3.5-9B (ours, {args.label})")
+    # comparison_table takes percentages; the summaries store fractions.
+    cc_pct = None if cc is None else 100 * cc
+    rif_pct = None if rif is None else 100 * rif
+    table = comparison_table(cc_pct, rif_pct, label=f"Qwen3.5-9B (ours, {args.label})")
     report = [f"# {args.label} vs METR", "", table, ""]
+    report += ["", "Baseline sanity check (PLAN.md):", ""]
+    report += [f"- {n}" for n in sanity_check(cc_pct, rif_pct)] + [""]
     if rif_sum.get("macro_compliance") is not None:
         report += [
             f"ReasonIF macro (unweighted over the 6 instruction types): "

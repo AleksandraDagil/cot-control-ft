@@ -26,6 +26,7 @@ class MetrRow:
     reasonif_base: float
     cotcontrol_ft240: float | None = None
     reasonif_ft240: float | None = None
+    note: str = ""
 
     @property
     def has_ft(self) -> bool:
@@ -38,9 +39,13 @@ METR_RESULTS: tuple[MetrRow, ...] = (
     MetrRow("Qwen3-32B", 3.7, 28.9, 9.8, 55.3),
     MetrRow("GPT-OSS-20B", 2.1, 15.0, 7.3, 50.7),
     MetrRow("GPT-OSS-120B", 4.4, 23.7, 13.1, 49.0),
-    MetrRow("Qwen3.5-4B", 0.0, 9.4),   # baseline only
-    MetrRow("Qwen3.5-27B", 1.3, 9.9),  # baseline only
+    MetrRow("Qwen3.5-4B", 0.0, 9.4, None, None, "baseline only"),
+    MetrRow("Qwen3.5-27B", 1.3, 9.9, None, None, "baseline only"),
 )
+
+# METR note the Qwen3.5 family "uses meta discussion very often" — so a high meta rate in our
+# baseline is an expected family trait, not a sign the run went wrong.
+QWEN35_HIGH_META_DISCUSSION = True
 
 # The Qwen3.5 models bracketing our 9B target; PLAN.md's sanity check for the baseline.
 EXPECTED_BASELINE_RANGE = {
@@ -53,21 +58,29 @@ def _fmt(x: float | None) -> str:
     return "—" if x is None else f"{x:.1f}"
 
 
-def comparison_table(ours_cotcontrol: float | None, ours_reasonif: float | None) -> str:
-    """Markdown table putting our Qwen3.5-9B baseline next to METR's published models."""
+def comparison_table(
+    ours_cotcontrol: float | None,
+    ours_reasonif: float | None,
+    label: str = "Qwen3.5-9B (this replication)",
+) -> str:
+    """Markdown table putting our Qwen3.5-9B baseline next to METR's published models.
+
+    Both inputs are **percentages** (0-100), matching how METR publishes them. Callers holding
+    a fraction from a summary JSON must scale by 100 first.
+    """
     lines = [
-        "| model | CoTControl base % | ReasonIF base % | CoTControl FT@240 % | ReasonIF FT@240 % |",
-        "|---|---:|---:|---:|---:|",
+        "| model | CoTControl base % | ReasonIF base % | CoTControl FT@240 % | ReasonIF FT@240 % | |",
+        "|---|---:|---:|---:|---:|---|",
     ]
     for r in METR_RESULTS:
         marker = " *(brackets ours)*" if r.model.startswith("Qwen3.5") else ""
         lines.append(
             f"| {r.model}{marker} | {_fmt(r.cotcontrol_base)} | {_fmt(r.reasonif_base)} | "
-            f"{_fmt(r.cotcontrol_ft240)} | {_fmt(r.reasonif_ft240)} |"
+            f"{_fmt(r.cotcontrol_ft240)} | {_fmt(r.reasonif_ft240)} | {r.note} |"
         )
     lines.append(
-        f"| **Qwen3.5-9B (this replication)** | **{_fmt(ours_cotcontrol)}** | "
-        f"**{_fmt(ours_reasonif)}** | — | — |"
+        f"| **{label}** | **{_fmt(ours_cotcontrol)}** | "
+        f"**{_fmt(ours_reasonif)}** | — | — | this replication |"
     )
     return "\n".join(lines)
 
