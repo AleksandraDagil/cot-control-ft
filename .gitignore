@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+ref/
+results/
+!results/**/summary*.json
+!results/**/*.md
+data/sft/
+data/cache/
+*.safetensors
