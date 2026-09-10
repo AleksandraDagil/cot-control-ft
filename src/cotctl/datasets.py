@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import csv
 import json
+import re
 import random
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -81,6 +82,41 @@ def _parse_list(raw: str | None) -> list | None:
     return None
 
 
+def answer_letter(answer: str, options: list[str] | None) -> str | None:
+    """Resolve a gold answer to its option letter.
+
+    The three upstream CSVs disagree: `hle` stores a bare letter, while `gpqa` and
+    `mmlu_pro_mini` store the answer *text* and expect you to find it among the options.
+    Scoring `ANSWER: X` against the first character of an answer string is meaningless for the
+    latter two, so resolve to a letter here, once, at load time.
+
+    Returns None when the answer cannot be located among the options, so the caller can treat
+    the row as unscorable rather than silently wrong.
+    """
+    a = (answer or "").strip()
+    if not a:
+        return None
+    # Already a bare letter (hle).
+    if len(a) == 1 and a.isalpha():
+        return a.upper()
+    if not options:
+        return None
+
+    def norm(x: str) -> str:
+        return re.sub(r"\s+", " ", str(x or "").strip().lower()).strip(" .")
+
+    target = norm(a)
+    normed = [norm(o) for o in options]
+    if target in normed:
+        return chr(ord("A") + normed.index(target))
+    # Fall back to a unique containment match: some rows carry trailing whitespace or a
+    # trailing period that the option text does not.
+    hits = [i for i, o in enumerate(normed) if o and (o == target or o.startswith(target) or target.startswith(o))]
+    if len(hits) == 1:
+        return chr(ord("A") + hits[0])
+    return None
+
+
 def load_cotcontrol_file(path: Path, dataset_name: str) -> list[Sample]:
     out = []
     with open(path, newline="", encoding="utf-8") as f:
@@ -103,6 +139,7 @@ def load_cotcontrol_file(path: Path, dataset_name: str) -> list[Sample]:
                     correct_answer=row["answer"],
                     options=options,
                     metadata={
+                        "answer_letter": answer_letter(row["answer"], options),
                         "source": row.get("source", ""),
                         "domain": row.get("domain", ""),
                         "keywords": keywords,

@@ -170,7 +170,9 @@ def main() -> int:
         if suite == "cotcontrol" and not args.no_judge:
             judged = judge_ignore_question(rollouts, cfg, out_dir / "judge_cache.jsonl")
 
-        graded = ev.grade_all(rollouts, judged)
+        # gpqa/mmlu_pro golds are answer text, not letters; resolve via the options.
+        answer_key = ev.cotcontrol_answer_key() if suite == "cotcontrol" else None
+        graded = ev.grade_all(rollouts, judged, answer_key)
         graded_by_suite[suite] = graded
         summaries[suite] = ev.write_summary(graded, out_dir, f"{args.label}_{suite}", run_config)
         print()
@@ -181,7 +183,7 @@ def main() -> int:
         # can show both rather than defend the deviation.
         cap = int(args.metr_cap or 0)
         if cap and sampling.max_tokens > cap:
-            capped = ev.grade_all(ev.apply_token_cap(rollouts, cap), judged)
+            capped = ev.grade_all(ev.apply_token_cap(rollouts, cap), judged, answer_key)
             summaries[f"{suite}_metr_cap"] = ev.write_summary(
                 capped, out_dir, f"{args.label}_{suite}_metrcap{cap}",
                 {**run_config, "simulated_max_tokens": cap},
