@@ -78,3 +78,41 @@ models truncated at all.
 - Word suppression uses bare keywords, no synonyms (METR's variant).
 - Meta-discussion measured with METR's regex heuristic; the CoTControl paper uses an LLM judge.
 - Editor/judge LLM reached through OpenRouter rather than the OpenAI API directly.
+
+## Audit of the completed runs (2026-09-10)
+
+Checked after the fact, because several risky things had happened: two sessions writing the
+same tree, a calibration killed and restarted twice, and code changed mid-run.
+
+**Clean.** All three rollout stores: 0 unparsable lines, 0 duplicate `(sample_id, mode)` keys,
+0 recorded errors, 0 empty reasoning traces. Re-grading the stored ReasonIF rollouts with
+current code reproduces the on-disk summary byte-identically, so nothing is stale. ReasonIF word
+limits verified applied in both prompt text and grader args on all 53 `number_words` rows.
+CoTControl prompts verified to carry their control value and `Requirement:` clause, with no row
+lacking keywords or options. `git fsck` clean.
+
+**Two log errors, both false alarms.** vLLM logs a WARNING-level `Traceback` for an optional
+Numba import (it rejects NumPy 2.5); the server is unaffected. One client `APIConnectionError`
+retried and succeeded, which is why the store records zero errors.
+
+**One real mislabel, no effect on results.** 15 of 900 calibration rollouts had
+`truncated=True` with `think_status="ok"`: the model closed `</think>` and *then* hit the cap
+mid-answer, so the reasoning is complete and its word count exact. Classifying on `truncated`
+alone counted them as right-censored. p20 is unchanged for every source (verified by direct
+recomputation) because censoring affects only the rank count, never the ordering, and
+identifiability still held with the lower count. The classification is now
+`truncated AND status == "unclosed"`.
+
+**Mixed censoring levels, by construction.** gpqa and amc censored observations were recorded at
+a 16384 cap and restored rather than regenerated, because only their rank matters for a low
+percentile; aime's were regenerated at 32768. Harmless here — p20 sits far below the smallest
+censored value in every source, which `identifiable()` checks — but it is a real detail of how
+the numbers were produced and belongs in the write-up.
+
+**Known outstanding.** The in-flight baseline imported the pre-fix scoring code, so its
+CoTControl accuracy must be regenerated with `--grade-only` after it finishes. Compliance is
+unaffected, since it never reads the gold answer.
+
+**Tuning note.** vLLM reports that `--kv-cache-memory=10127396352` (9.43 GiB) would fully use
+the GPU against the 8.5 GiB currently allocated, roughly 11 % more KV and so ~11 % more
+throughput. Not worth restarting mid-run; worth setting for the P4 checkpoint evals.

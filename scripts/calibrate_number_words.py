@@ -108,8 +108,13 @@ def main() -> int:
     for r in store.read_all():
         if r.get("error"):
             continue
-        censored = bool(r.get("truncated"))
         status = r.get("think_status")
+        # A rollout is censored only if the cap cut it off *inside* the think block. When the
+        # model closed </think> and then ran out of tokens mid-answer, the reasoning is
+        # complete and its word count is exact, not a lower bound -- `truncated` alone would
+        # mislabel those (15/900 on the Qwen3.5-9B run). It does not move p20, since censoring
+        # affects only the count and not the ranking, but the label should be right.
+        censored = bool(r.get("truncated")) and status == "unclosed"
         if status != "ok" and not (status == "unclosed" and censored):
             n_bad += 1  # no think block at all -- no length to learn from
             continue
