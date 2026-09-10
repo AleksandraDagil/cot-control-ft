@@ -94,6 +94,11 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=None, help="debug: cap questions per suite")
     ap.add_argument("--no-judge", action="store_true", help="skip the ignore_question LLM judge")
     ap.add_argument("--grade-only", action="store_true", help="re-grade stored rollouts, no inference")
+    ap.add_argument(
+        "--metr-cap", type=int, default=16384,
+        help="also report the metric as if generation had stopped at this many output tokens "
+             "(METR's max_tokens), for comparability; 0 disables the second table",
+    )
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -170,6 +175,26 @@ def main() -> int:
         summaries[suite] = ev.write_summary(graded, out_dir, f"{args.label}_{suite}", run_config)
         print()
         print(ev.markdown_table(ev.by_mode(graded), f"{args.label} — {suite}"))
+
+        # We serve above METR's 16384-token cap because it truncated a third of this model's
+        # rollouts non-randomly. Recover their number from the same rollouts so the write-up
+        # can show both rather than defend the deviation.
+        cap = int(args.metr_cap or 0)
+        if cap and sampling.max_tokens > cap:
+            capped = ev.grade_all(ev.apply_token_cap(rollouts, cap), judged)
+            summaries[f"{suite}_metr_cap"] = ev.write_summary(
+                capped, out_dir, f"{args.label}_{suite}_metrcap{cap}",
+                {**run_config, "simulated_max_tokens": cap},
+            )
+            n_lost = sum(1 for r in rollouts if int(r.get("completion_tokens") or 0) > cap)
+            print()
+            print(
+                ev.markdown_table(
+                    ev.by_mode(capped),
+                    f"{args.label} — {suite} (as if max_tokens={cap}, METR-comparable; "
+                    f"{n_lost}/{len(rollouts)} rollouts lost to the cap)",
+                )
+            )
 
     (out_dir / f"summary_{args.label}.json").write_text(
         json.dumps({"config": run_config, "suites": summaries}, indent=2) + "\n", encoding="utf-8"

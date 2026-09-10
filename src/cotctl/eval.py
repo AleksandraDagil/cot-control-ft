@@ -30,7 +30,7 @@ from typing import Iterable, Sequence
 from .datasets import Sample, load_cotcontrol, load_reasonif, proportional_sample
 from .graders.cotcontrol import detect_meta_discussion, grade_cotcontrol
 from .graders.reasonif import grade_reasonif
-from .inference import GRADEABLE, Request
+from .inference import GRADEABLE, UNCLOSED, Request
 from .prompts import (
     COTCONTROL_MODES,
     END_PHRASES,
@@ -251,6 +251,30 @@ def grade_rollout(rollout: dict, judged: dict[tuple[str, str], bool | None] | No
 
 def grade_all(rollouts: Iterable[dict], judged: dict[tuple[str, str], bool | None] | None = None) -> list[Graded]:
     return [grade_rollout(r, judged) for r in rollouts]
+
+
+def apply_token_cap(rollouts: Iterable[dict], cap: int) -> list[dict]:
+    """Re-project rollouts as if generation had stopped at `cap` output tokens.
+
+    We serve with a larger `max_tokens` than METR's 16384, because this model truncates a
+    third of its rollouts at that cap and truncation is not random — it drops exactly the
+    long-reasoning questions. That buys statistical power at the cost of comparability, so
+    rather than choose, we recover METR's number post-hoc: any rollout that ran past `cap`
+    would, under their cap, have been cut off mid-`<think>` and become ungradeable.
+
+    Marking those `unclosed` reproduces the effect the cap has on the compliance metric
+    exactly, since a capped rollout contributes nothing to the rate either way. It does not
+    reconstruct the text the model *would* have emitted, which is why this is only valid for
+    the compliance/meta rates, not for reasoning-length statistics.
+    """
+    out = []
+    for r in rollouts:
+        if int(r.get("completion_tokens") or 0) > cap:
+            r = dict(r)
+            r["think_status"] = UNCLOSED
+            r["truncated"] = True
+        out.append(r)
+    return out
 
 
 # ---------------------------------------------------------------------------
