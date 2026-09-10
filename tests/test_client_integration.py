@@ -22,6 +22,7 @@ class _State:
         self.fail_first_n = 0
         self.finish_reason = "stop"
         self.reasoning = "Let me think about this."
+        self.reasoning_key = "reasoning"  # vLLM 0.29; older builds used reasoning_content
         self.content = "The answer is 4."
         self.lock = threading.Lock()
 
@@ -58,7 +59,7 @@ def server():
                             "message": {
                                 "role": "assistant",
                                 "content": state.content,
-                                "reasoning_content": state.reasoning,
+                                state.reasoning_key: state.reasoning,
                             },
                             "finish_reason": state.finish_reason,
                         }
@@ -118,6 +119,18 @@ class TestResponseParsing:
         state.finish_reason, state.content = "length", ""
         r = run_sync(_client(url), [Request("s1", "m", "hi")], SamplingParams(), progress=False)[0]
         assert r.think_status == UNCLOSED and r.truncated is True
+
+
+class TestReasoningFieldOverTheWire:
+    """The client must read the think block under either field name, end to end."""
+
+    @pytest.mark.parametrize("key", ["reasoning", "reasoning_content"])
+    def test_both_field_names(self, server, key):
+        url, state = server
+        state.reasoning_key = key
+        r = run_sync(_client(url), [Request("s1", "m", "hi")], SamplingParams(), progress=False)[0]
+        assert r.reasoning == "Let me think about this."
+        assert r.think_status == OK
 
 
 class TestRetryAndResume:
