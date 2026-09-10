@@ -13,8 +13,15 @@ server:
 sampling:
   # METR: temperature 1.0, max_tokens 16384, no system prompt.
   # top_p/top_k are Qwen's thinking-mode defaults; presence_penalty deliberately unset.
+  #
+  # DEVIATION from METR: max_tokens raised 16384 -> 32768. At 16384 this model truncated 33 %
+  # of rollouts mid-<think> (aime 85 %, amc 55 %, gpqa 36 %). Truncated rollouts are ungradeable
+  # and drop out of every compliance rate, so the cap was silently deciding which questions
+  # counted -- and dropping precisely the long-reasoning ones. METR's own models reason far more
+  # concisely, so 16384 did not bind for them the way it does here. Report the truncation rate
+  # alongside every result and flag this deviation in the write-up.
   temperature: 1.0
-  max_tokens: 16384
+  max_tokens: 32768
   top_p: 0.95
   top_k: 20
   seed: null
