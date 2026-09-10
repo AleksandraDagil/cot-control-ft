@@ -92,42 +92,58 @@ def main() -> int:
         run_sync(client, requests, sampling, store, desc="calibration")
 
     # --- aggregate -------------------------------------------------------
+    # Two kinds of rollout are usable here:
+    #   * think_status "ok"       -- an exact reasoning length;
+    #   * truncated mid-<think>   -- a right-censored length ("at least this many words").
+    # Only "missing"/"empty" think blocks carry no length information at all.
+    #
+    # Truncated rollouts must be kept. Dropping them removes the top tail, so the p-th
+    # percentile of what remains is the (p x retained_fraction)-th percentile of the true
+    # distribution -- a systematically tighter word limit than the recipe intends. Because the
+    # target percentile is low (20th) and every censored rollout sits far above it, counting
+    # them at their censored length yields the correct p20: only their count matters.
     per_source: dict[str, list[int]] = {}
-    per_source_truncated: dict[str, int] = {}
+    per_source_censored: dict[str, list[int]] = {}
     n_trunc = n_bad = 0
     for r in store.read_all():
         if r.get("error"):
             continue
-        if r.get("think_status") != "ok":
-            n_bad += 1
+        censored = bool(r.get("truncated"))
+        status = r.get("think_status")
+        if status != "ok" and not (status == "unclosed" and censored):
+            n_bad += 1  # no think block at all -- no length to learn from
             continue
-        if r.get("truncated"):
+        if censored:
             n_trunc += 1
             if drop_truncated:
                 continue
         source = (r.get("meta") or {}).get("source")
-        if source:
-            per_source.setdefault(source, []).append(len(re.findall(r"\w+", r.get("reasoning") or "")))
-            if r.get("truncated"):
-                per_source_truncated[source] = per_source_truncated.get(source, 0) + 1
+        if not source:
+            continue
+        words = len(re.findall(r"\w+", r.get("reasoning") or ""))
+        per_source.setdefault(source, []).append(words)
+        if censored:
+            per_source_censored.setdefault(source, []).append(words)
 
-    # Truncated rollouts are right-censored at max_tokens: we know the reasoning was at least
-    # this long, not how long it would have been. Dropping them removes the top tail, so the
-    # p-th percentile of what remains is really the (p * retained_fraction)-th percentile of the
-    # true distribution -- a systematically *tighter* word limit than intended. Because the
-    # target percentile here is low (20th) and every censored rollout sits far above it, keeping
-    # them at their censored length gives the correct p20: only their count matters, not their
-    # exact values. So drop_truncated defaults to false.
+    def identifiable(src: str, vals: list[int]) -> bool:
+        """A right-censored p-th percentile is recoverable only while the censored share stays
+        below (100 - p) *and* the estimate itself falls below every censored observation."""
+        cens = per_source_censored.get(src, [])
+        if not vals:
+            return False
+        if 100 * len(cens) / len(vals) >= (100 - pct):
+            return False
+        return not cens or percentile(vals, pct) < min(cens)
+
     limits = {src: int(percentile(vals, pct)) for src, vals in sorted(per_source.items())}
     for src, vals in sorted(per_source.items()):
-        censored = per_source_truncated.get(src, 0)
-        # p20 is only identifiable while the uncensored share (100 - censored%) exceeds 20.
-        if vals and 100 * censored / len(vals) >= (100 - pct):
+        if not identifiable(src, vals):
             log.warning(
-                "%s: %.0f%% of rollouts are censored, which reaches the p%g target -- the limit "
-                "for this source is a lower bound, not a percentile",
-                src, 100 * censored / len(vals), pct,
+                "%s: %.0f%% of rollouts are censored at the token cap -- the p%g limit (%d) is a "
+                "LOWER BOUND on the true percentile, not a measurement of it",
+                src, 100 * len(per_source_censored.get(src, [])) / len(vals), pct, limits[src],
             )
+
     stats = {
         src: {
             "n": len(vals),
@@ -136,8 +152,9 @@ def main() -> int:
             "p80": int(percentile(vals, 80)),
             "mean": round(sum(vals) / len(vals), 1),
             "max": max(vals),
-            "n_truncated": per_source_truncated.get(src, 0),
-            "pct_truncated": round(100 * per_source_truncated.get(src, 0) / len(vals), 1),
+            "n_censored": len(per_source_censored.get(src, [])),
+            "pct_censored": round(100 * len(per_source_censored.get(src, [])) / len(vals), 1),
+            "p20_identifiable": identifiable(src, vals),
         }
         for src, vals in sorted(per_source.items())
     }
@@ -150,9 +167,8 @@ def main() -> int:
             {
                 "model": model_name,
                 "percentile": pct,
-                "drop_truncated": drop_truncated,
-                "n_truncated": n_trunc,
-                "truncated_dropped": drop_truncated,
+                "n_censored_total": n_trunc,
+                "censored_dropped": drop_truncated,
                 "n_unusable_think": n_bad,
                 "limits": limits,
                 "per_source": stats,
@@ -164,9 +180,13 @@ def main() -> int:
     )
 
     print(f"\nnumber_words limits (p{pct:g} of unconstrained reasoning length) for {model_name}:")
-    print(f"{'source':<10}{'n':>6}{'p20':>8}{'median':>9}{'p80':>8}{'max':>8}")
+    print(f"{'source':<10}{'n':>6}{'cens%':>7}{'p20':>8}{'median':>9}{'p80':>8}{'max':>8}  {'p20 valid'}")
     for src, s in stats.items():
-        print(f"{src:<10}{s['n']:>6}{s['p20']:>8}{s['median']:>9}{s['p80']:>8}{s['max']:>8}")
+        flag = "yes" if s["p20_identifiable"] else "NO (lower bound)"
+        print(
+            f"{src:<10}{s['n']:>6}{s['pct_censored']:>6.0f}%{s['p20']:>8}{s['median']:>9}"
+            f"{s['p80']:>8}{s['max']:>8}  {flag}"
+        )
     verb = "dropped" if drop_truncated else "kept (right-censored)"
     print(f"\ntruncated: {n_trunc} {verb}; {n_bad} unusable think block")
     print(f"wrote {out_json.relative_to(REPO)}")
