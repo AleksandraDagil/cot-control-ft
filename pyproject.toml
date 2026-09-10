@@ -22,6 +22,7 @@ dependencies = [
 # GPU host (skynet 3) only. vLLM nightly + transformers main are installed separately, see README.
 gpu = [
     "torch",
+    "wandb",
     "transformers",
     "peft",
     "accelerate",

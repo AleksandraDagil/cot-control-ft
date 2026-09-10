@@ -132,6 +132,28 @@ translate + condense). Verify with graders; drop non-compliant; report yield per
 **P3 — LoRA SFT (hours).** r=32, lr 1e-4, effective batch 4 (bs1×ga4, grad-ckpt), Adam(0.9,0.95), 1 epoch, max_len 8192,
 adapters at 60/120/180/final. Deliverable: `results/ckpts/step-{60,120,180,final}/`.
 
+*Run monitoring — Weights & Biases (decided 2026-09-10).* `train/sft_lora.py` logs to W&B; the run is not
+considered reproducible without it. Project `cot-control-ft`, run name = `{model}-r{rank}-lr{lr}-{timestamp}`,
+`WANDB_API_KEY` in `.env` (offline via `WANDB_MODE=offline` when the box has no network).
+
+- **Adapter weights as artifacts** at every checkpoint (steps 60/120/180/final — 60 steps = 240 samples, METR's
+  headline). Log the adapter only (~50 MB at r=32), never the merged 19 GB base. Version each as
+  `adapter-step{N}`, and attach the eval metrics for that step to the same artifact so a checkpoint's
+  number and its weights cannot drift apart.
+- **Per-step scalars:** train loss, grad-norm (pre- and post-clip), lr, Adam β/eps, tokens/s, GPU memory
+  reserved vs allocated, wall-clock per step.
+- **Loss-masking sanity:** assistant tokens per batch and the fraction of the sequence they cover. Loss is on
+  assistant tokens only, so this silently going to ~0 or ~1 is the failure mode that would invalidate the run —
+  it must be visible on a chart, not just asserted in a test.
+- **Sequence stats:** input length distribution and the count truncated at max_len 8192 (SFT rows carry full
+  reasoning traces, and this model's traces run long — see the eval truncation findings, where a cap silently
+  selected which examples counted).
+- **Periodic validation:** ReasonIF compliance on a held-out slice at each checkpoint, so the training curve
+  and the thing we actually care about sit on the same axis. PLAN's success criterion is that this rises
+  materially (METR saw ~2x).
+- **Config and provenance:** full resolved config, LoRA rank/alpha/dropout/target-modules, seed, dataset row
+  count, and the SFT jsonl content hash, so a run can be tied to the exact data that produced it.
+
 **P4 — Post-FT eval + write-up (1 day).** Serve base with LoRA adapters via vLLM; re-run identical eval per checkpoint;
 paired comparison (same samples), per-mode bars, training curve; short markdown report with METR side-by-side.
 
