@@ -296,3 +296,134 @@ class TestApplyTokenCap:
         r["mode"] = "ignore_question"
         g = ev.grade_rollout(ev.apply_token_cap([r], 16384)[0])
         assert g.compliant is False, "no usable reasoning is a violation for this mode"
+
+
+def _g2(sid, mode="m", compliant=None, correct=None, rw=100, aw=10, trunc=False):
+    return ev.Graded(
+        sample_id=sid, mode=mode, suite="cotcontrol", compliant=compliant, correct=correct,
+        meta_discussion=None, think_status=OK, truncated=trunc, completion_tokens=rw * 2,
+        reasoning_words=rw, answer_words=aw, reasoning_chars=rw * 5, answer_chars=aw * 5,
+    )
+
+
+class TestLengthsRecorded:
+    def test_answer_and_reasoning_lengths_captured(self):
+        r = {
+            "sample_id": "s", "mode": "no_comma", "prompt": "p",
+            "reasoning": "one two three", "answer": "<answer>42</answer>",
+            "think_status": OK, "completion_tokens": 9,
+            "meta": {"suite": "reasonif", "instruction_type": "no_comma", "correct_answer": "42"},
+        }
+        g = ev.grade_rollout(r)
+        assert g.reasoning_words == 3
+        # answer_words measures the whole post-</think> segment as the model emitted it,
+        # so the <answer> tags count too: "answer", "42", "answer".
+        assert g.answer_words == 3
+        assert g.reasoning_chars == len("one two three")
+        assert g.answer_chars == len("<answer>42</answer>")
+
+    def test_correctness_still_recorded(self):
+        r = {
+            "sample_id": "s", "mode": "uppercase_thinking", "prompt": "p",
+            "reasoning": "HELLO", "answer": "ANSWER: A", "think_status": OK,
+            "meta": {"suite": "cotcontrol", "correct_answer": "A"},
+        }
+        assert ev.grade_rollout(r).correct is True
+
+
+class TestAccuracyByCompliance:
+    def test_splits_correctly(self):
+        graded = [
+            _g2("1", compliant=True, correct=True),
+            _g2("2", compliant=True, correct=False),
+            _g2("3", compliant=False, correct=True),
+            _g2("4", compliant=False, correct=True),
+            _g2("5", compliant=None, correct=False),
+        ]
+        a = ev.accuracy_by_compliance(graded)
+        assert a["compliant"]["accuracy"] == 0.5
+        assert a["non_compliant"]["accuracy"] == 1.0
+        assert a["unknown"]["n"] == 1
+
+    def test_gap_is_noncompliant_minus_compliant(self):
+        # Complying cost accuracy: gap should be positive.
+        graded = [_g2("1", compliant=True, correct=False), _g2("2", compliant=False, correct=True)]
+        a = ev.accuracy_by_compliance(graded)
+        assert a["accuracy_gap_noncompliant_minus_compliant"] == pytest.approx(1.0)
+
+    def test_gap_none_when_an_arm_is_empty(self):
+        a = ev.accuracy_by_compliance([_g2("1", compliant=True, correct=True)])
+        assert a["accuracy_gap_noncompliant_minus_compliant"] is None
+
+    def test_unanswered_excluded_from_accuracy(self):
+        a = ev.accuracy_by_compliance([_g2("1", compliant=True, correct=None)])
+        assert a["compliant"]["n"] == 1 and a["compliant"]["n_answered"] == 0
+        assert a["compliant"]["accuracy"] is None
+
+    def test_mean_lengths_reported(self):
+        a = ev.accuracy_by_compliance([_g2("1", compliant=True, rw=100, aw=10),
+                                       _g2("2", compliant=True, rw=200, aw=20)])
+        assert a["compliant"]["mean_reasoning_words"] == 150.0
+        assert a["compliant"]["mean_answer_words"] == 15.0
+
+
+class TestAccuracyByLength:
+    def test_quantile_bins_are_equal_count(self):
+        graded = [_g2(str(i), correct=True, rw=i + 1) for i in range(20)]
+        bins = ev.accuracy_by_length(graded, n_bins=5)
+        assert len(bins) == 5
+        assert all(b["n"] == 4 for b in bins)
+
+    def test_bins_ordered_by_length(self):
+        graded = [_g2(str(i), correct=True, rw=i + 1) for i in range(20)]
+        bins = ev.accuracy_by_length(graded, n_bins=5)
+        maxes = [b["reasoning_words_max"] for b in bins]
+        assert maxes == sorted(maxes)
+
+    def test_detects_accuracy_falling_with_length(self):
+        short = [_g2(f"s{i}", correct=True, rw=10) for i in range(10)]
+        long = [_g2(f"l{i}", correct=False, rw=1000) for i in range(10)]
+        bins = ev.accuracy_by_length(short + long, n_bins=2)
+        assert bins[0]["accuracy"] == 1.0 and bins[1]["accuracy"] == 0.0
+
+    def test_empty_input(self):
+        assert ev.accuracy_by_length([]) == []
+
+    def test_zero_length_rollouts_skipped(self):
+        assert ev.accuracy_by_length([_g2("1", correct=True, rw=0)]) == []
+
+
+class TestLengthStats:
+    def test_reports_all_three_distributions(self):
+        st = ev.length_stats([_g2(str(i), rw=i + 1, aw=i + 1) for i in range(10)])
+        assert set(st) == {"reasoning_words", "answer_words", "completion_tokens"}
+        assert st["reasoning_words"]["median"] in (5, 6)
+        assert st["reasoning_words"]["max"] == 10
+
+    def test_empty(self):
+        assert ev.length_stats([])["reasoning_words"] == {"n": 0}
+
+
+class TestGradedRowExport:
+    def test_roundtrip_has_the_plotting_fields(self, tmp_path):
+        import json as _json
+
+        p = ev.write_graded_rows([_g2("1", compliant=True, correct=True, rw=42, aw=7)], tmp_path / "g.jsonl")
+        row = _json.loads(p.read_text().strip())
+        for k in ("sample_id", "mode", "compliant", "correct", "reasoning_words",
+                  "answer_words", "completion_tokens", "truncated"):
+            assert k in row
+        assert row["reasoning_words"] == 42 and row["answer_words"] == 7
+
+    def test_write_summary_emits_graded_rows(self, tmp_path):
+        ev.write_summary([_g2("1", compliant=True, correct=True)], tmp_path, "lbl")
+        assert (tmp_path / "graded_lbl.jsonl").exists()
+        md = (tmp_path / "summary_lbl.md").read_text()
+        assert "Accuracy by compliance status" in md
+        assert "Accuracy by CoT length" in md
+
+    def test_summary_json_carries_the_new_sections(self, tmp_path):
+        s = ev.write_summary([_g2("1", compliant=True, correct=True)], tmp_path, "lbl")
+        for k in ("accuracy_by_compliance", "accuracy_by_compliance_per_mode",
+                  "accuracy_by_cot_length", "length_stats"):
+            assert k in s
