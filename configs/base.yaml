@@ -43,8 +43,10 @@ eval:
     seed: 42                 # proportional_sample draw over the 1214-row pool
     modes: null              # null = all 9
   # Per-source word budgets for the number_words instruction, produced by
-  # scripts/calibrate_number_words.py. null = use the values shipped in the dataset.
-  word_limits: null
+  # scripts/calibrate_number_words.py (900 rollouts, p20, 2026-09-10). The values shipped in
+  # reasonIF_dataset.json were calibrated on GPT-OSS-120B, which is ~9x more concise than this
+  # model, so using them would make the instruction near-impossible rather than a real squeeze.
+  word_limits: data/word_limits_Qwen3.5-9B.json
 
 judge:
   model: openai/gpt-5-mini   # via OpenRouter; upstream + METR use gpt-5-mini
