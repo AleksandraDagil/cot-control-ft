@@ -57,3 +57,37 @@ judge, reached through an OpenAI-compatible gateway. Key lives in `.env` (`OPENR
 gitignored). `src/cotctl/judge.py` falls back to a direct `OPENAI_API_KEY` if that is what is set.
 Verified live: a "thinking about my cat" trace judged compliant, an actual solution judged
 non-compliant.
+
+## P0 smoke test (2026-09-10)
+
+`scripts/smoke_test.py --batch 32` — all checks passed against the live server.
+
+- `<think>` parsing: reasoning ~7.9k chars, answer ~450 chars, tags stripped by the parser.
+- CoTControl-shaped MCQ: think block closed, `ANSWER: A` extractable.
+- Throughput: **~2,325 output tok/s at batch 32** (32 rollouts, 1024-token cap, 14.0 s).
+  Projected whole-project inference (17,000 rollouts x ~6k tokens): **~12 GPU-hours**.
+- KV cache 7.25 GiB / 208,200 tokens; max concurrency 8.47x at 24,576 tokens per request.
+
+### Two launch problems worth remembering
+
+**FlashInfer would not build for sm_120.** It failed first with `"FlashInfer requires GPUs with
+sm75 or higher"` on an sm_120 card — misleading: the arch check reports on whichever nvcc it
+finds, and `get_cuda_path()` resolved `/usr/local/cuda`, a **CUDA 12.8** system toolkit (nvcc
+present, just not on PATH). sm_120 needs >= 12.9, so the target-arch set came back empty.
+Pointing `CUDA_HOME` at the venv's cu13 tree fixed detection (CUDA 13.4, arch `(12, '0f')`),
+but then Ninja failed: FlashInfer 0.6.18 bundles CCCL headers that reject nvcc 13.4-rc
+("CUDA compiler and CUDA toolkit headers are incompatible"). Attention already runs on
+FLASH_ATTN and only the *sampler* wanted FlashInfer, so `serve_vllm.sh` sets
+`VLLM_USE_FLASHINFER_SAMPLER=0` and uses vLLM's native top-k/top-p. Same sampling semantics.
+Revisit if `nvidia-cuda-nvcc` is ever pinned back to 13.0.x.
+
+**vLLM 0.29 renamed the reasoning field.** The qwen3 parser puts the think block on
+`message.reasoning`, not `message.reasoning_content`. Reading only the old name made every
+rollout look like `think_status="missing"` with the reasoning landing in `content` — which
+would have silently zeroed every compliance rate. `cotctl.inference.reasoning_field` now reads
+whichever is populated.
+
+**Truncation is the thing to watch.** Qwen3.5-9B spends ~3-4k tokens reasoning on even a
+trivial MCQ, and hit the cap mid-`<think>` at 2048. Rollouts that truncate inside the think
+block are `think_status="unclosed"` and are excluded from compliance rates, so the truncation
+rate is reported alongside every result.

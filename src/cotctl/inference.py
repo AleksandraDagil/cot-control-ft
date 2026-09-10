@@ -5,8 +5,10 @@ raw — reasoning text, answer text, usage, finish reason — and never pre-grad
 re-grading (e.g. after a grader fix or a new `number_words` calibration) costs nothing.
 
 Think-block handling follows PLAN.md: the reasoning is whatever sits inside `<think>…</think>`.
-With `--reasoning-parser qwen3` vLLM splits that out into `message.reasoning_content`; we also
-parse raw `<think>` tags out of `content` as a fallback (an adapter can emit them literally).
+With `--reasoning-parser qwen3` vLLM splits that out onto the message: the field is
+`reasoning` in vLLM 0.29 and `reasoning_content` in older builds, so we read whichever is
+populated. We also parse raw `<think>` tags out of `content` as a fallback (an adapter can
+emit them literally).
 A rollout whose think block is missing, empty or unclosed gets `think_status != "ok"` and is
 excluded from compliance rates by `eval.py` (except `ignore_question`, which counts as False).
 """
@@ -87,6 +89,19 @@ class Rollout:
 # ---------------------------------------------------------------------------
 # think-block extraction
 # ---------------------------------------------------------------------------
+
+
+def reasoning_field(message) -> str | None:
+    """Read the parser's reasoning off a response message.
+
+    vLLM renamed this field: 0.29 emits `reasoning`, older builds `reasoning_content`.
+    Accepts an object or a dict so it works with both the SDK model and raw JSON.
+    """
+    for name in ("reasoning_content", "reasoning"):
+        value = message.get(name) if isinstance(message, dict) else getattr(message, name, None)
+        if value:
+            return value
+    return None
 
 
 def split_think(
@@ -273,7 +288,7 @@ class VLLMClient:
             choice = resp.choices[0]
             msg = choice.message
             reasoning, answer, status = split_think(
-                msg.content, getattr(msg, "reasoning_content", None), choice.finish_reason
+                msg.content, reasoning_field(msg), choice.finish_reason
             )
             usage = resp.usage
             return Rollout(

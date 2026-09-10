@@ -119,3 +119,37 @@ class TestSamplingParams:
 
     def test_top_k_goes_in_extra_body(self):
         assert SamplingParams(top_k=20).to_request()["extra_body"]["top_k"] == 20
+
+
+class TestReasoningField:
+    """vLLM 0.29 renamed the parser's output field from reasoning_content to reasoning."""
+
+    def test_reads_vllm_029_reasoning(self):
+        from cotctl.inference import reasoning_field
+
+        assert reasoning_field({"reasoning": "thought", "content": "ans"}) == "thought"
+
+    def test_reads_legacy_reasoning_content(self):
+        from cotctl.inference import reasoning_field
+
+        assert reasoning_field({"reasoning_content": "thought"}) == "thought"
+
+    def test_prefers_populated_field(self):
+        from cotctl.inference import reasoning_field
+
+        assert reasoning_field({"reasoning_content": "", "reasoning": "thought"}) == "thought"
+
+    def test_none_when_absent_or_empty(self):
+        from cotctl.inference import reasoning_field
+
+        assert reasoning_field({"content": "ans"}) is None
+        assert reasoning_field({"reasoning": ""}) is None
+
+    def test_works_on_objects_not_just_dicts(self):
+        from cotctl.inference import reasoning_field
+
+        class Msg:
+            content = "ans"
+            reasoning = "thought"
+
+        assert reasoning_field(Msg()) == "thought"

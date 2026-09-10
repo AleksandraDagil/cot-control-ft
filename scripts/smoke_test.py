@@ -104,7 +104,9 @@ async def main() -> int:
             [Request("smoke_cc", "uppercase_thinking",
                      cotcontrol_prompt("What is the capital of France?", "uppercase_thinking", "",
                                        ["Paris", "London", "Berlin", "Madrid"]))],
-            SamplingParams(max_tokens=2048),
+            # Qwen3.5-9B spends ~3-4k tokens reasoning on even a trivial MCQ, so a smaller cap
+            # truncates mid-<think> and the probe would report a spurious "unclosed".
+            SamplingParams(max_tokens=8192),
             progress=False,
         )
     )[0]
