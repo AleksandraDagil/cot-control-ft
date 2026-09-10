@@ -14,12 +14,21 @@ sampling:
   # METR: temperature 1.0, max_tokens 16384, no system prompt.
   # top_p/top_k are Qwen's thinking-mode defaults; presence_penalty deliberately unset.
   #
-  # DEVIATION from METR: max_tokens raised 16384 -> 32768. At 16384 this model truncated 33 %
-  # of rollouts mid-<think> (aime 85 %, amc 55 %, gpqa 36 %). Truncated rollouts are ungradeable
-  # and drop out of every compliance rate, so the cap was silently deciding which questions
-  # counted -- and dropping precisely the long-reasoning ones. METR's own models reason far more
-  # concisely, so 16384 did not bind for them the way it does here. Report the truncation rate
-  # alongside every result and flag this deviation in the write-up.
+  # DEVIATION from METR: max_tokens raised 16384 -> 32768, measured on both suites.
+  #
+  # ReasonIF calibration at 16384: 33 % of rollouts truncated mid-<think> (aime 85 %, amc 55 %,
+  # gpqa 36 %). CoTControl probe at 16384 (54 rollouts, 6 questions x 9 modes): 15 % would have
+  # truncated, and it is concentrated entirely in one dataset --
+  #     cotcontrol/gpqa      median 13153 tok, 8/18 over 16384  (44 %)
+  #     cotcontrol/hle       median  6991 tok, 0/18 over 16384
+  #     cotcontrol/mmlu_pro  median  7018 tok, 0/18 over 16384
+  # GPQA is 110 of our 300-question draw, so a 16384 cap would silently drop ~16 % of CoTControl
+  # rollouts, non-randomly: the long-reasoning ones. Truncated rollouts are ungradeable and leave
+  # every compliance rate, so the cap was deciding which questions counted. METR's own models
+  # reason far more concisely, so 16384 did not bind for them the way it does here.
+  #
+  # 32768 does not fully fix it -- 3/54 CoTControl rollouts still truncate, and aime's ReasonIF
+  # p20 may remain censored. Report the truncation rate with every result and flag the deviation.
   temperature: 1.0
   max_tokens: 32768
   top_p: 0.95
