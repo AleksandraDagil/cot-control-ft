@@ -25,4 +25,4 @@ calibration:
   # 300 x 3 = 900 rollouts, matching PLAN.md's calibration compute estimate.
   repeats: 3
   # Truncated rollouts have a censored word count and would bias the percentile down.
-  drop_truncated: true
+  drop_truncated: false   # see the censoring note in the script: dropping biases p20 low

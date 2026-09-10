@@ -65,7 +65,7 @@ def main() -> int:
     model_name = args.model or cfg["model"]["served_name"]
     repeats = args.repeats if args.repeats is not None else int(cfg["calibration"].get("repeats", 1))
     pct = float(cfg["calibration"].get("percentile", 20))
-    drop_truncated = bool(cfg["calibration"].get("drop_truncated", True))
+    drop_truncated = bool(cfg["calibration"].get("drop_truncated", False))
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -93,6 +93,7 @@ def main() -> int:
 
     # --- aggregate -------------------------------------------------------
     per_source: dict[str, list[int]] = {}
+    per_source_truncated: dict[str, int] = {}
     n_trunc = n_bad = 0
     for r in store.read_all():
         if r.get("error"):
@@ -100,14 +101,33 @@ def main() -> int:
         if r.get("think_status") != "ok":
             n_bad += 1
             continue
-        if drop_truncated and r.get("truncated"):
+        if r.get("truncated"):
             n_trunc += 1
-            continue
+            if drop_truncated:
+                continue
         source = (r.get("meta") or {}).get("source")
         if source:
             per_source.setdefault(source, []).append(len(re.findall(r"\w+", r.get("reasoning") or "")))
+            if r.get("truncated"):
+                per_source_truncated[source] = per_source_truncated.get(source, 0) + 1
 
+    # Truncated rollouts are right-censored at max_tokens: we know the reasoning was at least
+    # this long, not how long it would have been. Dropping them removes the top tail, so the
+    # p-th percentile of what remains is really the (p * retained_fraction)-th percentile of the
+    # true distribution -- a systematically *tighter* word limit than intended. Because the
+    # target percentile here is low (20th) and every censored rollout sits far above it, keeping
+    # them at their censored length gives the correct p20: only their count matters, not their
+    # exact values. So drop_truncated defaults to false.
     limits = {src: int(percentile(vals, pct)) for src, vals in sorted(per_source.items())}
+    for src, vals in sorted(per_source.items()):
+        censored = per_source_truncated.get(src, 0)
+        # p20 is only identifiable while the uncensored share (100 - censored%) exceeds 20.
+        if vals and 100 * censored / len(vals) >= (100 - pct):
+            log.warning(
+                "%s: %.0f%% of rollouts are censored, which reaches the p%g target -- the limit "
+                "for this source is a lower bound, not a percentile",
+                src, 100 * censored / len(vals), pct,
+            )
     stats = {
         src: {
             "n": len(vals),
@@ -116,6 +136,8 @@ def main() -> int:
             "p80": int(percentile(vals, 80)),
             "mean": round(sum(vals) / len(vals), 1),
             "max": max(vals),
+            "n_truncated": per_source_truncated.get(src, 0),
+            "pct_truncated": round(100 * per_source_truncated.get(src, 0) / len(vals), 1),
         }
         for src, vals in sorted(per_source.items())
     }
@@ -129,7 +151,8 @@ def main() -> int:
                 "model": model_name,
                 "percentile": pct,
                 "drop_truncated": drop_truncated,
-                "n_truncated_dropped": n_trunc,
+                "n_truncated": n_trunc,
+                "truncated_dropped": drop_truncated,
                 "n_unusable_think": n_bad,
                 "limits": limits,
                 "per_source": stats,
@@ -144,7 +167,8 @@ def main() -> int:
     print(f"{'source':<10}{'n':>6}{'p20':>8}{'median':>9}{'p80':>8}{'max':>8}")
     for src, s in stats.items():
         print(f"{src:<10}{s['n']:>6}{s['p20']:>8}{s['median']:>9}{s['p80']:>8}{s['max']:>8}")
-    print(f"\ndropped: {n_trunc} truncated, {n_bad} unusable think block")
+    verb = "dropped" if drop_truncated else "kept (right-censored)"
+    print(f"\ntruncated: {n_trunc} {verb}; {n_bad} unusable think block")
     print(f"wrote {out_json.relative_to(REPO)}")
     return 0
 
