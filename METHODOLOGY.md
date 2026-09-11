@@ -117,6 +117,122 @@ unaffected, since it never reads the gold answer.
 the GPU against the 8.5 GiB currently allocated, roughly 11 % more KV and so ~11 % more
 throughput. Not worth restarting mid-run; worth setting for the P4 checkpoint evals.
 
+## Truncation and censoring: the subtlest trap in this replication
+
+If you replicate this, read this section first. Three separate mistakes here all came from the
+same blind spot, and two of them produce numbers that look entirely reasonable.
+
+### What censoring is
+
+A rollout that hits `max_tokens` while still inside `<think>` never closes the block. You do not
+learn how long its reasoning *would* have been — only that it is **at least** what you saw. In
+survival-analysis terms it is right-censored: not missing data, but a lower bound. This matters
+because the `number_words` limit is defined as the 20th percentile of the model's *unconstrained*
+reasoning length, so the calibration is an attempt to measure a distribution whose upper tail the
+token cap is quietly cutting off.
+
+For this model the cap bites hard. At METR's 16384, 85 % of aime rollouts and 55 % of amc were
+censored. METR's own models reason far more concisely, so the cap barely binds for them — which
+is exactly why the trap is invisible if you assume their settings transfer.
+
+### Mistake 1: dropping the censored rollouts (biased, and plausible-looking)
+
+The instinct is to use only the clean observations. That is wrong here, because the discarded
+rollouts are not missing at random — they are *systematically the longest*.
+
+If a fraction `f` is censored and all censored values sit above all complete ones, the retained
+set is the shortest `(1 - f)` of the distribution. The p-th percentile of what remains is
+therefore roughly the `p x (1 - f)`-th percentile of the truth:
+
+| source | censored at 16384 | p20 of survivors | true p20 | error |
+|---|---:|---:|---:|---:|
+| aime | 85 % | 2702 | 7451 | 2.8x too small |
+| amc | 55 % | 2867 | 4249 | 1.5x |
+| gpqa | 36 % | 2904 | 3478 | 1.2x |
+
+A 2.8x-too-small word budget makes the instruction near-impossible and drives that source's
+`number_words` compliance toward a spurious zero — which would have been reported as a finding
+about the model rather than an artefact of our own aggregation.
+
+**The fix is to keep them.** Because every censored rollout is longer than every complete one,
+they occupy the top ranks, and a *low* percentile can be read off the complete values without
+ever knowing the censored ones. Only their **count** matters, not their values.
+
+Note this was our invention, not a deviation we inherited: METR applies no truncation check at
+all (`calibrate_word_count.py` skips errors and empty reasoning, then counts words), which is
+equivalent to right-censoring for a low percentile. Fixing it moved us back onto their method.
+
+### Mistake 2: assuming a bias can always be corrected for
+
+Raising the cap was still necessary, and this is the part that statistics alone cannot rescue.
+At 16384, only 15 % of aime rollouts completed — so p20 fell *inside* the censored region. The
+estimate was not merely biased, it was **unidentifiable**: no weighting scheme recovers a
+percentile that lies above every value you observed. The only fix is more tokens.
+
+This is what `identifiable()` guards. It checks both that the censored share is below
+`(100 - p)` and that the estimate falls below the smallest censored observation, and reports a
+lower bound rather than a number when it does not. METR has no such check, so in this regime
+their code would emit a too-low number silently. At 32768 every source became identifiable,
+aime included, because aime traces turn out to run ~19k tokens.
+
+### Mistake 3: over-correcting, and throwing away good data
+
+Having understood the bias, we then stripped **all 210** censored rollouts to regenerate them at
+the higher cap. Only aime's 97 needed it. For gpqa (88 complete + 51 censored) and amc (45 + 60)
+the p20 rank already fell inside the completed region, so a rollout censored at 16384 already
+carried everything the percentile required — regenerating it to learn "this one is long" is pure
+waste. Roughly two GPU-hours, caught after ten minutes; 106 observations were restored from a
+backup instead.
+
+The lesson generalises: censored data is not worthless data. Ask what the statistic actually
+needs before discarding anything.
+
+### The same trap in the eval, wearing different clothes
+
+In the calibration, truncation biases a percentile. In the **evaluation** it does something
+different and equally invisible: a truncated rollout is ungradeable, so it leaves the compliance
+denominator entirely. Truncation is not random — it removes the long-reasoning questions, which
+are the ones least likely to satisfy a reasoning constraint. So a tighter cap **inflates**
+apparent compliance.
+
+Measured on our own ReasonIF baseline, same rollouts, two caps:
+
+| cap | gradeable | truncation | compliance |
+|---|---:|---:|---:|
+| 32768 | 262/300 | 14.0 % | **5.7 %** |
+| 16384 | 193/300 | 35.7 % | **7.3 %** |
+
+The tighter cap reads 1.6 pp *higher* while silently discarding 69 more rollouts. If you
+replicate at 16384 without measuring your truncation rate, you will report that inflated number
+and have no way to see it. It also raises a fair question about METR's published figures: if
+their models truncated at all, the same inflation is present and unreported.
+
+`eval.apply_token_cap` exists for this. Generate at the larger cap and re-project down: from
+32768 rollouts you can recover the 16384 number exactly, but from 16384 rollouts you can never
+recover the 32768 one, because the tokens do not exist. **The higher cap strictly dominates in
+information** — run high, report both.
+
+### Two smaller instances of the same blind spot
+
+**A cap you forgot about looks like a bug.** The P0 smoke test capped its CoTControl probe at
+2048 tokens and reported `think_status="unclosed"`, which read as a reasoning-parser failure. It
+was the probe's own budget: this model spends 3-4k tokens reasoning about even a trivial MCQ.
+
+**`truncated` is not the same as "reasoning was cut off".** 15 of 900 calibration rollouts had
+`truncated=True` with `think_status="ok"` — the model closed `</think>` and *then* ran out of
+tokens mid-answer. The reasoning is complete and its word count exact; only the answer is
+missing. Classify on `truncated AND status == "unclosed"`, not on `truncated` alone.
+
+### Checklist for a replicator
+
+1. Measure your truncation rate per source and per mode **before** trusting any rate.
+2. Never drop truncated rollouts from a length calibration; count them as censored.
+3. Check that your percentile falls below the smallest censored value; if not, the cap is too
+   low and no statistic will save you.
+4. Do not regenerate censored rollouts that the statistic does not need.
+5. Generate at a cap above the one you intend to report, and re-project down.
+6. Distinguish "cut off inside the think block" from "cut off in the answer".
+
 ## Problems found, and what each one did
 
 Every issue hit across P0-P2, in rough order of how much damage it would have done if it had
@@ -248,6 +364,51 @@ source -- but a real detail of how the numbers were produced.
 **22. Baseline compliance of exactly zero leaves the accuracy cross-tab one-armed.** With no
 compliant CoTControl rollout at baseline, whether complying costs accuracy cannot be answered
 from this run. It becomes answerable after fine-tuning.
+
+### Additional issues from the session log
+
+**23. `pkill -f` matched the shell that invoked it.** Killing a background job by pattern killed
+the very command doing the killing, three times, because the pattern string appears in that
+shell's own `/proc/<pid>/cmdline`. Symptom: exit code 144 and a command that stops halfway, so
+the *second* half — usually the relaunch — never runs, leaving nothing where you expected a
+restarted process. Use a bracket in the pattern (`watchdog_[b]aseline`) so it cannot match its
+own literal text, or resolve PIDs first and kill by number. Always re-check what is actually
+running afterwards rather than assuming the command did what it said.
+
+**24. Editing a shell script while bash is executing it.** Bash reads scripts incrementally, so
+an in-place edit can make a running instance resume at a shifted byte offset and execute
+garbage. Stop the process, edit, relaunch — never patch a running `.sh`.
+
+**25. A throughput figure taken from the wrong workload.** The P0 smoke test reported ~2325
+output tok/s at batch 32, which was used to project the whole project at ~12 GPU-hours. That
+number came from 1024-token generations; real rollouts run to 16-32k and saturate the KV cache,
+giving ~900 tok/s sustained and later ~400-600 under a 32768 cap. The honest baseline estimate
+was ~14 hours, not one. Benchmark at the token budget you will actually use, and report
+`Running:` vs `Waiting:` from the vLLM log — 17 of 64 requests resident is the real constraint,
+not the client's concurrency setting.
+
+**26. Long commit messages broke on shell quoting.** Parentheses and quotes inside `git commit
+-m` ran as shell syntax and produced `command not found` mid-message. Write the message to a
+file and use `git commit -F`.
+
+**27. Background monitors die independently of the work they watch.** Watch processes were killed
+twice while the underlying run continued perfectly. Never infer that a job has failed from its
+monitor going quiet; check the process and the output file. The converse also holds — the eval
+and server survived their launching session being killed, because they were started with
+`setsid` and had no controlling terminal.
+
+**28. A mid-run code change does not reach the running process.** The CoTControl accuracy fix
+landed while the baseline was executing; that process had already imported the old module, so it
+wrote the pre-fix accuracy at the end. Re-grading from stored rollouts (`--grade-only`) fixed it
+at no GPU cost. This is the argument for storing raw rollouts and never pre-grading them.
+
+## Standing practice
+
+Problems go in this document as they are found, not at the end of a phase. Anything that would
+have changed a reported number, or that cost real time, is written down here with what it did
+and how it was caught — including mistakes in the verification code itself, since a checker that
+is silently wrong is worse than no checker. A replicator should be able to read this file and
+know what to look out for before spending GPU time.
 
 ## Verification status (2026-09-11)
 
