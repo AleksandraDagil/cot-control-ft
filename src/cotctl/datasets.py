@@ -193,15 +193,55 @@ def proportional_sample(
 # ---------------------------------------------------------------------------
 
 
-def load_multilingual_thinking_prompts(cache_dir: Path | None = None) -> list[str]:
-    """User prompts from HuggingFaceH4/Multilingual-Thinking (1000 rows), deduplicated, order preserved."""
+# Questions whose answer would naturally be non-Latin script trip the strict case graders:
+# Japanese あ is alphabetic but caseless, so english_capital / lowercase_thinking mark the row
+# non-compliant even when every Latin letter is correctly cased. METR filters these at the pool
+# stage (`sft_builder.py`), and only these: a blanket non-ASCII rule was tried upstream and
+# rejected as too aggressive, since it also caught German umlauts and Unicode quotes in code.
+_NON_LATIN_LANGUAGES = (
+    "japanese", "chinese", "mandarin", "cantonese", "korean", "hindi",
+    "arabic", "russian", "thai", "greek", "hebrew", "persian", "farsi",
+    "urdu", "bengali", "tamil", "tibetan", "ukrainian", "bulgarian",
+    "serbian", "armenian", "georgian", "amharic", "sinhala", "khmer",
+    "lao", "burmese", "mongolian",
+)
+_TRANSLATE_PATTERN = re.compile(
+    r"\b(translate|translation|how (do|to) (you )?(say|write|spell|pronounce))\b", re.IGNORECASE
+)
+_NON_LATIN_LANG_PATTERN = re.compile(r"\b(" + "|".join(_NON_LATIN_LANGUAGES) + r")\b", re.IGNORECASE)
+
+
+def is_non_latin_question(q: str) -> bool:
+    """True if `q` is a translate-style question whose target uses a non-Latin script."""
+    return bool(_TRANSLATE_PATTERN.search(q) and _NON_LATIN_LANG_PATTERN.search(q))
+
+
+def load_multilingual_thinking_prompts(
+    cache_dir: Path | None = None,
+    filter_non_latin: bool = True,
+    dedup: bool = False,
+) -> list[str]:
+    """User prompts from HuggingFaceH4/Multilingual-Thinking (1000 rows), order preserved.
+
+    Counts on the shipped dataset: 1000 rows, 4 removed by `filter_non_latin`, leaving **996**;
+    that pool contains 59 exact duplicate prompts, so `dedup=True` would leave 937.
+
+    `dedup` defaults to **False** to match METR, which filters but does not deduplicate. PLAN.md's
+    "~953" matches neither and was an estimate. Duplicates are harmless here — a repeated prompt
+    drawn into two different modes simply teaches two transforms of the same question.
+    """
     from datasets import load_dataset  # lazy: only needed on the GPU host
 
-    ds = load_dataset("HuggingFaceH4/Multilingual-Thinking", split="train", cache_dir=str(cache_dir) if cache_dir else None)
-    seen, out = set(), []
+    ds = load_dataset(
+        "HuggingFaceH4/Multilingual-Thinking", split="train",
+        cache_dir=str(cache_dir) if cache_dir else None,
+    )
+    out = []
     for row in ds:
         q = (row.get("user") or "").strip()
-        if q and q not in seen:
-            seen.add(q)
-            out.append(q)
-    return out
+        if not q:
+            continue
+        if filter_non_latin and is_non_latin_question(q):
+            continue
+        out.append(q)
+    return list(dict.fromkeys(out)) if dedup else out
