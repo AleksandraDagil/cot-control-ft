@@ -11,6 +11,7 @@ results/**
 !results/**/
 !results/**/summary*.json
 !results/**/*.md
+!results/**/*stats*.json
 data/sft/
 data/cache/
 *.safetensors
