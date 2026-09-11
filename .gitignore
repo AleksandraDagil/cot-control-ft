@@ -4,7 +4,11 @@ __pycache__/
 .pytest_cache/
 .env
 ref/
-results/
+# Keep the small deliverables (summaries, reports) under version control and drop the bulky
+# rollout JSONLs. Note: ignoring `results/` outright makes git skip the directory entirely, so
+# the negations below never fire -- the contents must be ignored, not the directory itself.
+results/**
+!results/**/
 !results/**/summary*.json
 !results/**/*.md
 data/sft/
