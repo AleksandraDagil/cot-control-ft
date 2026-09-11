@@ -82,6 +82,11 @@ async def stage2(plan: list[Assignment], out_dir: Path, editor_model: str, limit
         if r.get("think_status") != "ok" or not (r.get("reasoning") or "").strip():
             dropped.append({"row_idx": a.row_idx, "mode": a.mode, "reason": f"think_status={r.get('think_status')}"})
             return
+        # An empty answer would train the model to emit nothing after </think>, which is the
+        # opposite of what we want: the point is a controlled CoT *and* a real answer.
+        if not (r.get("answer") or "").strip():
+            dropped.append({"row_idx": a.row_idx, "mode": a.mode, "reason": "empty answer"})
+            return
 
         args = dict(a.constraint_args or {})
         ctx = TransformContext(question=a.question, full_prompt=a.stage1_prompt, editor=editor)
