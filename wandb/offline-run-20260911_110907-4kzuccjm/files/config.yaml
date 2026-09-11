@@ -1,0 +1,135 @@
+_wandb:
+    value:
+        cli_version: 0.30.0
+        e:
+            jeekn30zffxuelxr1rng6ahpyntlt3pe:
+                args:
+                    - --wandb-mode
+                    - offline
+                    - --run-name
+                    - qwen35-9b-reasonif-r32
+                codePath: scripts/train_lora.py
+                codePathLocal: scripts/train_lora.py
+                cpu_count: 16
+                cpu_count_logical: 32
+                cudaVersion: "13.2"
+                disk:
+                    /:
+                        total: "1966736678912"
+                        used: "1801030709248"
+                executable: /home/ola/dev/cot-control-ft/.venv/bin/python
+                git:
+                    commit: c1f1f2537f5badcd44504198af8b044079960133
+                    remote: git@github.com:AleksandraDagil/cot-control-ft.git
+                gpu: NVIDIA GeForce RTX 5090
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Blackwell
+                      cudaCores: 21760
+                      memoryTotal: "34190917632"
+                      name: NVIDIA GeForce RTX 5090
+                      uuid: GPU-f865965f-da03-0197-f665-f6724b2c53ad
+                host: skynet3
+                memory:
+                    total: "202192113664"
+                os: Linux-7.0.0-28-generic-x86_64-with-glibc2.39
+                program: /home/ola/dev/cot-control-ft/scripts/train_lora.py
+                python: CPython 3.12.3
+                root: /home/ola/dev/cot-control-ft
+                startedAt: "2026-09-11T10:09:07.498724Z"
+                writerId: 7ibcywhjpt1c8ajj77hfq9y3yag5hzsa
+        m: []
+        python_version: 3.12.3
+        t:
+            "1":
+                - 1
+                - 11
+                - 41
+                - 49
+                - 71
+                - 98
+            "2":
+                - 1
+                - 11
+                - 41
+                - 49
+                - 71
+                - 98
+            "3":
+                - 2
+                - 4
+                - 13
+                - 16
+                - 76
+                - 61
+                - 78
+            "4": 3.12.3
+            "5": 0.30.0
+            "6": 5.18.0.dev0
+            "12": 0.30.0
+            "13": linux-x86_64
+adam_beta1:
+    value: 0.9
+adam_beta2:
+    value: 0.95
+batch_size:
+    value: 1
+checkpoint_steps:
+    value:
+        - 60
+        - 120
+        - 180
+data:
+    value: data/sft/qwen3.5-9b_reasonif.jsonl
+data_stats:
+    value:
+        max_len: 8192
+        mean_masked_fraction: 0.0737
+        mean_supervised_tokens: 2461.4
+        n_dropped_too_long: 7
+        n_kept: 920
+        n_rows: 927
+dataset_sha256_16:
+    value: 8a994f24de08ac47
+epochs:
+    value: 1
+grad_accum:
+    value: 4
+log_every:
+    value: 1
+lora_alpha:
+    value: 32
+lora_dropout:
+    value: 0
+lora_r:
+    value: 32
+lr:
+    value: 0.0001
+max_grad_norm:
+    value: 1
+max_len:
+    value: 8192
+model:
+    value: Qwen/Qwen3.5-9B
+n_examples:
+    value: 920
+n_lora_targets:
+    value: 248
+out_dir:
+    value: results/ckpts
+push_every:
+    value: 30
+seed:
+    value: 42
+total_params:
+    value: 9040359936
+total_steps:
+    value: 230
+trainable_params:
+    value: 86556672
+wandb_mode:
+    value: offline
+wandb_project:
+    value: cot-control-ft
+warmup_ratio:
+    value: 0

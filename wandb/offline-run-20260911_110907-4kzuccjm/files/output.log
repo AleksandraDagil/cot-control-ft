@@ -1,0 +1,66 @@
+2026-09-11 11:09:08,020 INFO loading Qwen/Qwen3.5-9B
+2026-09-11 11:09:08,114 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:09:08,118 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+2026-09-11 11:09:08,228 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:09:08,232 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+2026-09-11 11:09:08,324 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/model.safetensors "HTTP/1.1 404 Not Found"
+2026-09-11 11:09:08,417 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/model.safetensors.index.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:09:08,422 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/model.safetensors.index.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fmodel.safetensors.index.json=&etag=%22e4c1cb7dba5096b43b9d92bc781aba5e3aa8acd8%22 "HTTP/1.1 200 OK"
+2026-09-11 11:09:08,515 INFO HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen3.5-9B/revision/main "HTTP/1.1 200 OK"
+Fetching 4 files: 100%|██████████| 4/4 [00:00<00:00, 2804.15it/s]
+Loading weights: 100%|██████████| 427/427 [00:00<00:00, 452.92it/s]
+2026-09-11 11:09:10,059 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/generation_config.json "HTTP/1.1 404 Not Found"
+2026-09-11 11:09:10,149 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:09:10,154 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+2026-09-11 11:09:10,156 INFO LoRA targets: 248 linear modules (vision/MTP/lm_head excluded)
+2026-09-11 11:09:10,530 INFO trainable 86.6M / 9.0B (0.957%)
+[transformers] `causal_conv1d_fn` is falling back to its reference PyTorch implementation because `causal_conv1d` is not installed. This is correct but much slower; install `causal_conv1d` for the optimized kernel.
+[transformers] `chunk_gated_delta_rule` is falling back to its reference PyTorch implementation because `flash-linear-attention` is not installed. This is correct but much slower; install `flash-linear-attention` for the optimized kernel.
+2026-09-11 11:13:09,339 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:13:09,344 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+2026-09-11 11:13:09,434 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:13:09,440 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+wandb: Adding directory to artifact (results/ckpts/step-30)... Done. 0.4s
+2026-09-11 11:13:10,087 INFO saved results/ckpts/step-30
+2026-09-11 11:17:11,943 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:17:11,948 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+2026-09-11 11:17:12,038 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:17:12,044 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+wandb: Adding directory to artifact (results/ckpts/step-60)... Done. 0.4s
+2026-09-11 11:17:12,675 INFO saved results/ckpts/step-60
+2026-09-11 11:21:18,025 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:21:18,031 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+2026-09-11 11:21:18,123 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:21:18,128 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+wandb: Adding directory to artifact (results/ckpts/step-90)... Done. 0.4s
+2026-09-11 11:21:18,757 INFO saved results/ckpts/step-90
+2026-09-11 11:26:09,695 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:26:09,700 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+2026-09-11 11:26:09,795 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:26:09,800 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+wandb: Adding directory to artifact (results/ckpts/step-120)... Done. 0.4s
+2026-09-11 11:26:10,423 INFO saved results/ckpts/step-120
+2026-09-11 11:30:46,503 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:30:46,510 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+2026-09-11 11:30:46,605 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:30:46,611 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+wandb: Adding directory to artifact (results/ckpts/step-150)... Done. 0.4s
+2026-09-11 11:30:47,233 INFO saved results/ckpts/step-150
+2026-09-11 11:34:44,985 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:34:44,992 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+2026-09-11 11:34:45,084 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:34:45,088 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+wandb: Adding directory to artifact (results/ckpts/step-180)... Done. 0.4s
+2026-09-11 11:34:45,753 INFO saved results/ckpts/step-180
+2026-09-11 11:39:01,000 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:39:01,006 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+2026-09-11 11:39:01,097 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:39:01,102 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+wandb: Adding directory to artifact (results/ckpts/step-210)... Done. 0.4s
+2026-09-11 11:39:01,754 INFO saved results/ckpts/step-210
+2026-09-11 11:41:15,981 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:41:15,987 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+2026-09-11 11:41:16,080 INFO HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3.5-9B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-09-11 11:41:16,085 INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a/config.json?%2FQwen%2FQwen3.5-9B%2Fresolve%2Fmain%2Fconfig.json=&etag=%22273ce437e01baf96a07cd9eb3d5f48bac8d7c657%22 "HTTP/1.1 200 OK"
+wandb: Adding directory to artifact (results/ckpts/step-final)... Done. 0.4s
+2026-09-11 11:41:16,727 INFO saved results/ckpts/step-final

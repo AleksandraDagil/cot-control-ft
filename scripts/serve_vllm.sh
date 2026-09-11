@@ -35,7 +35,9 @@ MODEL="${MODEL:-Qwen/Qwen3.5-9B}"
 PORT="${PORT:-8000}"
 MAX_LEN="${MAX_LEN:-40960}"
 GPU_UTIL="${GPU_UTIL:-0.94}"
-ADAPTER="${1:-}"
+# Any number of adapters: scripts/serve_vllm.sh step-60=path step-final=path ...
+# A bare path (no "name=") is served as "ft", preserving the old single-adapter usage.
+ADAPTERS=("$@")
 
 ARGS=(
   --model "$MODEL"
@@ -51,9 +53,23 @@ ARGS=(
   --no-enable-log-requests
 )
 
-if [[ -n "$ADAPTER" ]]; then
-  ARGS+=(--lora-modules "ft=$ADAPTER")
-  echo "serving $MODEL + LoRA adapter 'ft' from $ADAPTER"
+if [[ ${#ADAPTERS[@]} -gt 0 ]]; then
+  SPECS=()
+  for a in "${ADAPTERS[@]}"; do
+    if [[ "$a" == *"="* ]]; then SPECS+=("$a"); else SPECS+=("ft=$a"); fi
+  done
+  ARGS+=(--lora-modules "${SPECS[@]}")
+  # max_loras caps how many adapters are *resident in GPU memory* at once; the rest are swapped
+  # in from host memory on demand. Each r=32 adapter is ~350 MB, which comes straight out of the
+  # KV cache, so keep this small when evals run one checkpoint at a time and only raise it if
+  # requests genuinely interleave across adapters.
+  N_RESIDENT="${MAX_LORAS:-2}"
+  [[ "$N_RESIDENT" -gt "${#SPECS[@]}" ]] && N_RESIDENT="${#SPECS[@]}"
+  for i in "${!ARGS[@]}"; do
+    if [[ "${ARGS[$i]}" == "--max-loras" ]]; then ARGS[$((i+1))]="$N_RESIDENT"; fi
+  done
+  echo "  (max_loras=$N_RESIDENT resident of ${#SPECS[@]} served)"
+  echo "serving $MODEL + ${#SPECS[@]} LoRA adapter(s): ${SPECS[*]}"
 else
   echo "serving $MODEL (base)"
 fi
