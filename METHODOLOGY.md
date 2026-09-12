@@ -539,6 +539,28 @@ weak condensation degrades to a mechanical cut rather than a malformed row. What
 catches is *quality*: a condensation that sits inside the budget but reads worse than gpt-5.4
 would have produced. The graders check compliance, not fidelity to the original reasoning.
 
-**To resolve it properly** a replicator should pin the METR commit contemporaneous with the
-blog and take prompts and editor model from the same vintage. Our clone is `--depth 1`, so the
-blog-era commit is not available locally to diff against.
+**Resolved by unshallowing the clone.** The change landed in `5bd3d02` (2026-05-04), titled
+*"Align SFT prompts with eval; bump editor to gpt-5.4"* — the prompts and the editor moved in
+the **same commit**. The blog-era commit is `62c786d` (2026-04-01), and there `transforms.py`
+hardcodes `model="openai/gpt-4.1"` with far simpler prompts and **no `<edited>` tag protocol**:
+
+    _TRANSLATE_SYSTEM = (
+        "Translate the following reasoning trace into {language}. "
+        "Preserve all mathematical notation, code, and technical terms. "
+        "Output ONLY the translated text."
+    )
+
+against the post-blog version we copied, which adds style/structure preservation, explicit
+fragment guidance, instructions to translate quoted English, and the tag protocol.
+
+So our position is precise: **blog-era editor model, post-blog editor prompts.** The two
+self-consistent alternatives are (a) `62c786d` prompts with gpt-4.1, matching the blog whose
+numbers we compare against, or (b) `9d2c4ec` prompts with gpt-5.4, matching METR's later code.
+Option (a) additionally requires a code change, because the blog-era prompts return bare text
+and our transforms require `<edited>` tags.
+
+Which is *better* data is a separate question from which is more faithful: the post-blog prompts
+are richer and were written to align SFT with eval, so the hybrid may well produce better
+training rows than the blog-era recipe. It is simply not the blog-era recipe. Rebuilding Stage 2
+under option (a) would cost ~266 editor calls and a retrain (about 45 minutes total, plus a
+re-eval).
