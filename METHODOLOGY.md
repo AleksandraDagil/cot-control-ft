@@ -461,70 +461,53 @@ through — not in the training framework, where they will usually work — befo
 ### Silver lining: the invalid run measures the noise floor
 
 Because every one of those eight evaluations was really the *same base model*, they are eight
-independent draws of the base model on the identical 300 ReasonIF prompts at temperature 1.0.
-That is a direct measurement of run-to-run sampling noise, which nothing else in this project
-provides, and it is preserved in `results/base_noise/`.
+independent draws on the identical 300 ReasonIF prompts at temperature 1.0 — a direct
+measurement of run-to-run sampling noise, which nothing else in this project provides. The
+recovered summaries are in `results/base_replicates/` (stats in `noise_stats.json`).
 
-ReasonIF macro-average compliance, same weights, nine runs (the eight repeats plus the original
-baseline):
+    micro compliance   mean 6.63 %   sd 0.88 pp   range 5.62 - 8.37
+    macro compliance   mean 6.45 %   sd 0.84 pp   range 5.42 - 8.05
 
-    5.7  6.0  6.4  6.6  8.1  8.2  8.3  8.3  8.8
-    mean 7.38 %   sd 1.18 pp   range 3.1 pp
+**Our published 5.7 % baseline sits at the bottom of that range.** It is roughly a point low by
+luck, so any uplift measured against it is flattered by about 1 pp. That belongs in the write-up.
 
-**Any ReasonIF macro difference smaller than about 3 pp at n=300 is indistinguishable from
-noise.** Our original 5.7 % baseline sits at the bottom of that band, so quoting it as a point
-estimate overstates its precision; 7.4 % ± 1.2 is the honest summary of the base model.
-
-Per instruction, the spread is very uneven, which matters for reading any uplift:
+Per instruction the spread is wildly uneven, and this is what actually governs how a result
+should be read:
 
 | instruction | min | max | mean | sd | range |
 |---|---:|---:|---:|---:|---:|
-| english_capital | 0.0 | 0.0 | 0.00 | 0.00 | 0.0 |
-| json_format | 0.0 | 0.0 | 0.00 | 0.00 | 0.0 |
-| no_comma | 0.0 | 3.2 | 0.40 | 1.13 | 3.2 |
-| number_words | 11.1 | 15.6 | 13.07 | 1.91 | 4.5 |
-| reasoning_language | 22.2 | 26.5 | 24.77 | 1.96 | 4.3 |
+| end_checker | 2.1 | 11.6 | 5.56 | 3.46 | **9.5** |
+| english_capital | 0.0 | 0.0 | 0.00 | **0.00** | 0.0 |
+| json_format | 0.0 | 0.0 | 0.00 | **0.00** | 0.0 |
+| no_comma | 0.0 | 2.1 | 0.26 | 0.74 | 2.1 |
+| number_words | 8.0 | 12.2 | 9.87 | 1.69 | 4.2 |
+| reasoning_language | 21.4 | 25.0 | 23.01 | 1.25 | 3.6 |
 
-`english_capital` and `json_format` are hard zeros in all nine runs — the base model never once
-satisfies them. Those are the cleanest places to detect a fine-tuning effect, because any
-non-zero result is unambiguous rather than a fluctuation. Conversely `reasoning_language` and
-`number_words` carry ~2 pp of noise each, so small movements there mean little.
+`end_checker` swings from 2.1 % to 11.6 % on an *identical model* — a 9.5 pp range, consistent
+with binomial noise at ~45 gradeable rollouts per instruction. **A per-instruction difference
+below roughly 10 pp is not interpretable from a single run**, whatever its Wald interval says.
+`english_capital` and `json_format`, by contrast, are hard zeros in all eight runs: the base
+model never once satisfies them, so any non-zero result there is unambiguous. Those are the
+cleanest places to detect a fine-tuning effect.
 
-CoTControl at 0.0 % across all 2,700 rollouts confirms that floor is real and not a sampling
-artefact.
+Overall rates are *more* stable than a binomial CI would predict (observed sd 0.88 pp against
+~1.5 pp for a binomial at n≈266), because the paired design holds the question set fixed and so
+removes question-selection variance. The pairing is earning its cost.
 
-**A second mistake, worth recording.** On discovering the runs were invalid I deleted the eight
+The accidental CoTControl replicate is a second full 2,700-rollout measurement landing on
+exactly 0.0 % across all nine modes, confirming that floor is the model's real behaviour rather
+than one unlucky draw.
+
+**Two mistakes worth recording.** First, on discovering the runs were invalid I deleted the eight
 result directories outright, reasoning that base-model rollouts mislabelled as checkpoints would
-mislead anyone who found them later. That was hasty: the raw rollouts had real value as the
-variance estimate above, and only the summary tables survived, recovered from a scratch log that
-could easily have been cleaned up. Mislabelled data should be *relabelled*, not destroyed. What
-remains is the per-mode summaries; the 2,400 raw ReasonIF rollouts and 2,700 CoTControl rollouts
-are gone.
+mislead whoever found them. That was hasty — the data had real value as the variance estimate
+above. The summaries were recoverable from git (they had been committed thanks to the earlier
+`.gitignore` fix), but the raw rollout JSONLs were gitignored and are gone for good, so none of
+this can be re-graded. Mislabelled data should be relabelled, not destroyed.
 
-### Salvage: the failed run is an 8-fold base-model control
-
-The ~24 GPU-hours were not entirely wasted. Because vLLM served the base model for all eight
-"checkpoint" evals, they constitute eight independent measurements of the same model on the same
-300 ReasonIF prompts at temperature 1.0 — a direct estimate of run-to-run noise that was never
-budgeted for. Summaries are recovered under `results/base_replicates/` (raw rollouts are gone;
-they were gitignored and deleted with the mislabelled directories, so these cannot be re-graded).
-
-    micro compliance   mean 6.63 %   sd 0.82   range 5.62 - 8.37
-
-Three things a replicator should take from it:
-
-**Overall rates are more stable than a binomial CI suggests.** Observed sd 0.82 pp against a
-binomial prediction of 1.52 pp (p=0.066, n=266). Reusing the same question set removes
-question-selection variance, which is the paired design earning its keep.
-
-**Per-instruction rates are not stable.** `end_checker` ranged 2.1 % to 11.6 % across runs of an
-identical model, a 9.5 pp spread at ~45 gradeable rollouts per instruction. A per-instruction
-difference under roughly 10 pp cannot be read from a single run, whatever its Wald interval says.
-
-**Our reported baseline is probably ~1 pp low by chance.** It reported 5.7 % micro; the replicate
-mean is 6.63 % and the original sits at the bottom of the observed range. Uplift measured against
-it is flattered by about a point, and the write-up should say so.
-
-Separately, the accidental CoTControl replicate is a second full 2,700-rollout measurement
-landing on exactly 0.0 % across all nine modes, confirming the floor is the model's behaviour
-rather than one unlucky draw.
+Second, my first pass at this analysis scraped the numbers out of a scratch log with a regex
+that silently failed to match `end_checker` rows, and I published a table omitting it — the one
+instruction with by far the largest spread. The conclusion drawn from that table was too
+optimistic about how stable per-instruction rates are. Recomputing from the complete recovered
+summaries fixed it. A parser that silently drops rows is the same class of bug as a checker that
+is itself wrong.
