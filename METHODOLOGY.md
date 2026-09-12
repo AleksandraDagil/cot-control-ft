@@ -420,3 +420,40 @@ questions x 9 modes with the identical question set in every mode, zero errors, 
 reproducing on a fresh re-grade, accuracy reflecting the letter fix); calibration (900
 rollouts, limits matching the stats file, all p20 identifiable, and the limits actually used by
 the baseline run).
+
+## CRITICAL: vLLM silently ignored the LoRA adapters (2026-09-12)
+
+**Symptom.** The first post-fine-tuning eval showed no uplift at all: ReasonIF 5.6 % at step-30
+against a 5.7 % baseline, flat on every instruction type. The later checkpoints wandered between
+6.0 and 8.3 %, which looked like a weak-but-real effect.
+
+**It was not an effect. It was sampling noise on the base model.** Served through vLLM with
+`--enable-lora --lora-modules step-60=...`, the adapters produced output *byte-identical to the
+base model* under greedy decoding. All four checkpoints, identical. The ~24 GPU-hours of P4
+evaluation measured the base model eight times over.
+
+**The adapter itself is fine.** Loaded directly with PEFT it works, and works well:
+
+    prompt: "...your response should be in English and in all capital letters."
+    base     caps ratio 0.14   "Thinking Process:\n\n1.  **Analyze the Request:** ..."
+    step-60  caps ratio 1.00   "THE USER IS ASKING FOR THE PRODUCT OF 12 TIMES 12. ..."
+
+All 248 `lora_B` tensors are non-zero, so training genuinely updated them, and PEFT collapsed
+`target_modules` to the 12 short names vLLM expects. vLLM even JIT-compiled `_lora_expand_kernel`
+at startup, so its LoRA machinery ran — it simply had no effect on the output.
+
+**What made this dangerous.** Nothing failed. No error, no warning that mentioned the language
+model (the only "will be ignored" warnings concern `visual.*` modules we deliberately excluded).
+A silent no-op plus temperature 1.0 produces numbers that drift a few points between checkpoints
+and look exactly like a small training effect. Had the baseline not been so precisely known, this
+would have been written up as "fine-tuning produced a modest ReasonIF gain and no CoTControl
+movement" — a real-sounding negative result that was entirely an artefact.
+
+**The check that catches it, and should be run before any post-FT eval:** send one prompt at
+`temperature=0` to the base and to each adapter and assert the outputs differ. Two minutes, and
+it invalidates or validates the entire phase. This is now `scripts/verify_adapter.py`.
+
+**Lesson for a replicator.** A serving stack that silently ignores an adapter is
+indistinguishable from a fine-tune that did not work, and the second explanation is much more
+tempting to believe. Prove the weights are live in the serving path you actually evaluate
+through — not in the training framework, where they will usually work — before spending GPU time.
