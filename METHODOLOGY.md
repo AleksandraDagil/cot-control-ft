@@ -511,3 +511,34 @@ instruction with by far the largest spread. The conclusion drawn from that table
 optimistic about how stable per-instruction rates are. Recomputing from the complete recovered
 summaries fixed it. A parser that silently drops rows is the same class of bug as a checker that
 is itself wrong.
+
+## Editor-model / prompt-vintage mismatch (flagged 2026-09-12)
+
+**What we reused from METR, precisely.** No METR code runs in this pipeline — `ref/` is on the
+test path only, as parity fixtures, and nothing under `src/` or `scripts/` imports
+`controllability`. What we copied is *text and recipe*: the `<edited>` tag protocol, the
+translate system prompt and the condense prompt (2,174 characters total, verified byte-for-byte
+against the pinned commit), the transform semantics, and the `plan_assignments` logic. The judge
+prompts are likewise verbatim, but from the **CoTControl** repo rather than METR. Everything
+executable is ours.
+
+**The inconsistency.** Our pinned METR clone is `9d2c4ec` (2026-05-05), five weeks *after* the
+2026-04-01 blog, and at that commit `transforms.py:54` reads `editor_model = "openai/gpt-5.4"`.
+We ran **gpt-4.1**, because that is what the blog states and the blog's numbers are what we
+compare against. So the editor prompts come from the gpt-5.4-era code while the editor is the
+blog-era model — the pairing is inconsistent whichever way it is resolved, since the blog-era
+prompts are not in our clone.
+
+**Blast radius.** Only the two LLM transforms: `number_words` (~152 condensations) and
+`reasoning_language` (114 translations). The other four modes are pure string edits.
+
+**What bounds the risk.** Every edited row is verified against the canonical ReasonIF grader
+before entering the dataset, and zero rows were dropped for failing it — all 10 drops were
+Stage-1 issues, for a 927/937 yield. `number_words` also falls back to hard truncation, so a
+weak condensation degrades to a mechanical cut rather than a malformed row. What none of that
+catches is *quality*: a condensation that sits inside the budget but reads worse than gpt-5.4
+would have produced. The graders check compliance, not fidelity to the original reasoning.
+
+**To resolve it properly** a replicator should pin the METR commit contemporaneous with the
+blog and take prompts and editor model from the same vintage. Our clone is `--depth 1`, so the
+blog-era commit is not available locally to diff against.
