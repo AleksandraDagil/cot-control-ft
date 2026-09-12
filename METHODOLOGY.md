@@ -457,3 +457,46 @@ it invalidates or validates the entire phase. This is now `scripts/verify_adapte
 indistinguishable from a fine-tune that did not work, and the second explanation is much more
 tempting to believe. Prove the weights are live in the serving path you actually evaluate
 through — not in the training framework, where they will usually work — before spending GPU time.
+
+### Silver lining: the invalid run measures the noise floor
+
+Because every one of those eight evaluations was really the *same base model*, they are eight
+independent draws of the base model on the identical 300 ReasonIF prompts at temperature 1.0.
+That is a direct measurement of run-to-run sampling noise, which nothing else in this project
+provides, and it is preserved in `results/base_noise/`.
+
+ReasonIF macro-average compliance, same weights, nine runs (the eight repeats plus the original
+baseline):
+
+    5.7  6.0  6.4  6.6  8.1  8.2  8.3  8.3  8.8
+    mean 7.38 %   sd 1.18 pp   range 3.1 pp
+
+**Any ReasonIF macro difference smaller than about 3 pp at n=300 is indistinguishable from
+noise.** Our original 5.7 % baseline sits at the bottom of that band, so quoting it as a point
+estimate overstates its precision; 7.4 % ± 1.2 is the honest summary of the base model.
+
+Per instruction, the spread is very uneven, which matters for reading any uplift:
+
+| instruction | min | max | mean | sd | range |
+|---|---:|---:|---:|---:|---:|
+| english_capital | 0.0 | 0.0 | 0.00 | 0.00 | 0.0 |
+| json_format | 0.0 | 0.0 | 0.00 | 0.00 | 0.0 |
+| no_comma | 0.0 | 3.2 | 0.40 | 1.13 | 3.2 |
+| number_words | 11.1 | 15.6 | 13.07 | 1.91 | 4.5 |
+| reasoning_language | 22.2 | 26.5 | 24.77 | 1.96 | 4.3 |
+
+`english_capital` and `json_format` are hard zeros in all nine runs — the base model never once
+satisfies them. Those are the cleanest places to detect a fine-tuning effect, because any
+non-zero result is unambiguous rather than a fluctuation. Conversely `reasoning_language` and
+`number_words` carry ~2 pp of noise each, so small movements there mean little.
+
+CoTControl at 0.0 % across all 2,700 rollouts confirms that floor is real and not a sampling
+artefact.
+
+**A second mistake, worth recording.** On discovering the runs were invalid I deleted the eight
+result directories outright, reasoning that base-model rollouts mislabelled as checkpoints would
+mislead anyone who found them later. That was hasty: the raw rollouts had real value as the
+variance estimate above, and only the summary tables survived, recovered from a scratch log that
+could easily have been cleaned up. Mislabelled data should be *relabelled*, not destroyed. What
+remains is the per-mode summaries; the 2,400 raw ReasonIF rollouts and 2,700 CoTControl rollouts
+are gone.
