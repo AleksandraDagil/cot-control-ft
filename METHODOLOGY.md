@@ -500,3 +500,31 @@ variance estimate above, and only the summary tables survived, recovered from a 
 could easily have been cleaned up. Mislabelled data should be *relabelled*, not destroyed. What
 remains is the per-mode summaries; the 2,400 raw ReasonIF rollouts and 2,700 CoTControl rollouts
 are gone.
+
+### Salvage: the failed run is an 8-fold base-model control
+
+The ~24 GPU-hours were not entirely wasted. Because vLLM served the base model for all eight
+"checkpoint" evals, they constitute eight independent measurements of the same model on the same
+300 ReasonIF prompts at temperature 1.0 — a direct estimate of run-to-run noise that was never
+budgeted for. Summaries are recovered under `results/base_replicates/` (raw rollouts are gone;
+they were gitignored and deleted with the mislabelled directories, so these cannot be re-graded).
+
+    micro compliance   mean 6.63 %   sd 0.82   range 5.62 - 8.37
+
+Three things a replicator should take from it:
+
+**Overall rates are more stable than a binomial CI suggests.** Observed sd 0.82 pp against a
+binomial prediction of 1.52 pp (p=0.066, n=266). Reusing the same question set removes
+question-selection variance, which is the paired design earning its keep.
+
+**Per-instruction rates are not stable.** `end_checker` ranged 2.1 % to 11.6 % across runs of an
+identical model, a 9.5 pp spread at ~45 gradeable rollouts per instruction. A per-instruction
+difference under roughly 10 pp cannot be read from a single run, whatever its Wald interval says.
+
+**Our reported baseline is probably ~1 pp low by chance.** It reported 5.7 % micro; the replicate
+mean is 6.63 % and the original sits at the bottom of the observed range. Uplift measured against
+it is flattered by about a point, and the write-up should say so.
+
+Separately, the accidental CoTControl replicate is a second full 2,700-rollout measurement
+landing on exactly 0.0 % across all nine modes, confirming the floor is the model's behaviour
+rather than one unlucky draw.
