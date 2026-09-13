@@ -176,6 +176,57 @@ larger behavioural change than the compliance number itself.
 
 ---
 
+## 5b. Reasoning length before and after fine-tuning
+
+Mean words inside `<think>`, over all rollouts with a usable think block.
+
+| suite | | n | mean | median | p90 | max | answer mean | truncated |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| **ReasonIF** | base | 300 | 6,137 | 4,370 | 14,186 | 19,918 | 332 | 14.0 % |
+| | step-60 | 300 | **5,367** | **3,786** | 13,276 | 22,070 | 374 | 12.0 % |
+| | change | | **−12.6 %** | **−13.4 %** | | | +12.7 % | −2.0 pp |
+| **CoTControl** | base | 2,700 | 5,340 | 4,564 | 9,123 | 19,970 | 193 | 4.3 % |
+| | step-60 | 2,700 | **5,829** | **4,770** | 11,626 | 25,236 | 279 | 7.9 % |
+| | change | | **+9.2 %** | **+4.5 %** | | | +44.6 % | **+3.6 pp** |
+
+**The two suites move in opposite directions, and that is the interesting part.**
+
+In-distribution the model becomes *more concise* (−12.6 %), which is what the training data
+asks for: `number_words` is a sixth of the SFT set and explicitly rewards compression, and its
+continuous score rose from 0.543 to 0.788. The fine-tune generalised "be brief when told to" well
+enough to shorten ReasonIF traces overall.
+
+Out of distribution it becomes *more verbose* (+9.2 %), and the per-mode pattern tracks the
+continuous-score result almost exactly:
+
+| mode | length change | continuous score |
+|---|---:|---:|
+| meow_between_words | **+30.9 %** | −0.062 |
+| end_of_sentence | **+21.9 %** | −0.029 |
+| multiple_word_suppression | +13.3 % | +0.019 |
+| ignore_question | +11.6 % | n/a |
+| word_suppression | +7.2 % | +0.023 |
+| repeat_sentences | +5.2 % | −0.028 |
+| lowercase_thinking | +1.2 % | −0.008 |
+| uppercase_thinking | −1.8 % | **+0.188** |
+| alternating_case | −3.2 % | **−0.187** |
+
+The modes that got markedly longer are the ones whose compliance got *worse*. The one mode that
+improved substantially, `uppercase_thinking`, got slightly shorter. The fine-tuned model appears
+to flounder at greater length on constraints it was not trained for — producing more reasoning
+while satisfying the instruction less.
+
+**A practical consequence worth carrying into any comparison: CoTControl truncation nearly
+doubled, 4.3 % → 7.9 %.** Truncated rollouts are ungradeable and leave the denominator, so the
+fine-tuned model loses more rollouts to the token cap than the base model does. At a smaller cap
+this would bite harder, which is a further argument for generating above the cap you intend to
+report (§6).
+
+Answer length rose in both suites, sharply on CoTControl (+44.6 %), so the extra verbosity is not
+confined to the reasoning channel.
+
+---
+
 ## 6. Reliability
 
 **Noise floor.** Eight evaluations that were accidentally run against the base model (see
