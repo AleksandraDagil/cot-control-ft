@@ -117,6 +117,44 @@ meaningful for deltas, not levels.
 
 ---
 
+## 4b. ReasonIF — continuous scoring
+
+Same partial-credit treatment applied in-distribution (paired bootstrap, 5,000 resamples):
+
+| instruction | n | base | step-60 | delta | 80 % CI | binary, for contrast |
+|---|---:|---:|---:|---:|---:|---|
+| **english_capital** | 36 | 0.185 | **0.488** | **+0.303** | [+0.222, +0.390] | 0.0 → 15.8 % |
+| **number_words** | 47 | 0.543 | **0.788** | **+0.245** | [+0.181, +0.309] | 8.3 → 42.3 % |
+| end_checker | 45 | 0.295 | 0.410 | +0.114 | [+0.037, +0.192] | 2.2 → 23.4 % |
+| json_format | 41 | 0.000 | 0.024 | +0.024 | [+0.000, +0.049] | 0.0 → 2.4 % |
+| no_comma | 45 | 0.797 | 0.814 | +0.018 | [+0.000, +0.036] | 0.0 → **27.7 %** |
+| **reasoning_language** | 41 | 0.398 | **0.263** | **−0.135** | [−0.175, −0.096] | 23.8 → 25.0 % |
+| **macro** | | **0.370** | **0.465** | **+0.095** | | 5.7 → 22.8 % |
+
+Two cases where continuous and binary disagree, in opposite directions, and both are informative.
+
+**`no_comma`: binary is the better metric here.** Binary shows a large gain (0.0 → 27.7 %) while
+continuous barely moves (+0.018), because the base model already scores 0.797 — it uses few
+commas relative to trace length. The instruction says *refrain from any commas*, so going from
+"few" to "none" is the whole task, and a density-based score is the wrong shape for a genuinely
+all-or-nothing constraint. Partial credit is not universally better; it depends on whether the
+constraint is a matter of degree.
+
+**`reasoning_language`: binary hid a real regression.** Binary reads flat (23.8 → 25.0 %, inside
+the replicate band, i.e. no change), but scoring language *per sentence* rather than once over
+the whole trace shows a significant **decline** (−0.135). Whole-trace detection reports the
+dominant language and so cannot see a trace that is translated three-quarters of the way; the
+fine-tuned model produces more language-mixed reasoning than the base model does.
+
+That is worth flagging because `reasoning_language` *is* one of the six trained constraints, so a
+regression is the opposite of the expected direction. A likely contributor: **27 % of the
+`reasoning_language` SFT rows (43 of 157) had English as their target**, where the Stage-2
+transform is a no-op by construction. Those rows teach nothing about translating and plausibly
+reinforce staying in English. A replication should either exclude English targets from that mode
+or count them separately.
+
+---
+
 ## 5. Does complying cost accuracy?
 
 At baseline this was unanswerable — zero compliant CoTControl rollouts, so no comparison arm.
