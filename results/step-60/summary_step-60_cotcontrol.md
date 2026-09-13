@@ -1,22 +1,6 @@
-# step-60 vs METR
+# step-60_cotcontrol
 
-| model | CoTControl base % | ReasonIF base % | CoTControl FT@240 % | ReasonIF FT@240 % | |
-|---|---:|---:|---:|---:|---|
-| Qwen3-8B | 1.1 | 20.9 | 5.6 | 43.8 |  |
-| Qwen3-32B | 3.7 | 28.9 | 9.8 | 55.3 |  |
-| GPT-OSS-20B | 2.1 | 15.0 | 7.3 | 50.7 |  |
-| GPT-OSS-120B | 4.4 | 23.7 | 13.1 | 49.0 |  |
-| Qwen3.5-4B *(brackets ours)* | 0.0 | 9.4 | — | — | baseline only |
-| Qwen3.5-27B *(brackets ours)* | 1.3 | 9.9 | — | — | baseline only |
-| **Qwen3.5-9B (ours, step-60)** | **0.8** | **—** | — | — | this replication |
-
-
-Baseline sanity check (PLAN.md):
-
-- cotcontrol: 0.8 % is within [0.0, 1.3] ±3 — as expected
-- reasonif: no value to check
-
-## cotcontrol
+### step-60_cotcontrol
 
 | mode | n | gradeable | compliance % | 80% CI | accuracy % | meta % | trunc % | med tok |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -32,3 +16,24 @@ Baseline sanity check (PLAN.md):
 
 **Macro-average compliance: 0.8 %** (unweighted mean over modes)
 
+
+### Accuracy by compliance status
+
+| compliance | n | answered | accuracy % | 80% CI | mean CoT words | mean answer words |
+|---|---:|---:|---:|---:|---:|---:|
+| compliant | 19 | 19 | 68.4 | 54.8–82.1 | 1184.5 | 94.2 |
+| non-compliant | 2490 | 2470 | 55.1 | 53.8–56.3 | 4974.8 | 279.0 |
+| ungradeable | 191 | 0 | — | — | 17421.3 | 0.0 |
+
+Accuracy gap (non-compliant − compliant): **-13.4 pp** (positive = complying cost accuracy)
+
+
+### Accuracy by CoT length (quintiles)
+
+| CoT-length bin | n | words (min–max) | median | accuracy % | compliance % | trunc % |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 540 | 50–2795 | 1300 | 66.0 | 3.2 | 0.2 |
+| 2 | 540 | 2796–4213 | 3571 | 58.9 | 0.2 | 0.4 |
+| 3 | 540 | 4215–5476 | 4771 | 56.8 | 0.0 | 0.2 |
+| 4 | 540 | 5477–7693 | 6379 | 48.4 | 0.2 | 0.9 |
+| 5 | 540 | 7693–25236 | 11651 | 39.9 | 0.0 | 38.0 |
