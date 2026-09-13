@@ -15,3 +15,10 @@ results/**
 data/sft/
 data/cache/
 *.safetensors
+
+# Rollout archives. The 2026-09-13 one is deliberately committed as an offsite backup of
+# otherwise-irreplaceable rollouts (raw rollouts are gitignored, and an earlier set was lost to
+# an over-hasty delete). Future archives are ignored by default so this does not become a habit
+# of pushing 64 MB blobs; commit one explicitly with `git add -f` if it is worth the history.
+archive/*
+!archive/rollouts_base_step60_20260913.tar.gz
