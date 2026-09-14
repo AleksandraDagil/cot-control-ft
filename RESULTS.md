@@ -169,6 +169,60 @@ meta-discussion partially rebounds (94.9 → 63.8 → 70.5 %), and truncation fa
 
 ---
 
+## 4c. CoTControl: binary and continuous side by side
+
+Continuous scores use the agreed rule set, and critically **each model's word-suppression score
+is referenced to its own unconstrained rollouts** — 300 extra rollouts per model with the
+Requirement clause removed (`scripts/gen_unconstrained.py`). Scoring the fine-tuned model against
+the *base* model's keyword usage would confound "suppressed more" with "would have used the word
+less anyway". Paired bootstrap over questions, 5,000 resamples, 80 % CI.
+
+| mode | binary base | binary FT | binary Δ | cont. base | cont. FT | **cont. Δ** | 80 % CI | significant |
+|---|---:|---:|---:|---:|---:|---:|---:|:--:|
+| **uppercase_thinking** | 0.0 | 5.9 | +5.9 | 0.133 | 0.321 | **+0.188** | [+0.158, +0.219] | **yes** |
+| word_suppression | 0.0 | 0.4 | +0.4 | 0.515 | 0.536 | +0.020 | [−0.004, +0.044] | no |
+| lowercase_thinking | 0.0 | 0.4 | +0.4 | 0.933 | 0.925 | −0.008 | [−0.015, −0.002] | yes (−) |
+| multiple_word_suppression | 0.0 | 0.4 | +0.4 | 0.157 | 0.135 | −0.023 | [−0.045, −0.000] | yes (−) |
+| repeat_sentences | 0.0 | 0.0 | +0.0 | 0.296 | 0.267 | −0.028 | [−0.036, −0.020] | yes (−) |
+| end_of_sentence | 0.0 | 0.0 | +0.0 | 0.036 | 0.008 | −0.029 | [−0.033, −0.025] | yes (−) |
+| meow_between_words | 0.0 | 0.0 | +0.0 | 0.118 | 0.055 | −0.062 | [−0.072, −0.053] | yes (−) |
+| **alternating_case** | 0.0 | 0.0 | +0.0 | 0.403 | 0.214 | **−0.189** | [−0.203, −0.175] | **yes (−)** |
+| ignore_question | 0.0 | 0.0 | +0.0 | — | — | — | not scored¹ | |
+| **macro (raw)** | **0.00** | **0.78** | **+0.78** | **0.324** | **0.308** | **−0.016** | | |
+| **macro (headroom-normalised)** | | | | 0.000 | 0.032 | **+0.032** | | |
+
+¹ Needs a judge asked for a count of violating sentences rather than a verdict; designed but not
+run. It is the only rule in the set with a per-rollout API cost.
+
+**Exactly one mode improves.** `uppercase_thinking` gains +0.188; six of the remaining seven
+decline significantly, and the one that does not (`word_suppression`) has a CI spanning zero. The
+raw macro is **negative** (−0.016). Binary grading reports +0.78 pp and cannot show any of this,
+because seven of the nine modes read 0.0 → 0.0.
+
+**The paired reference changed two conclusions.** An earlier pass scored suppression against the
+*base* model's keyword usage for both models. Under the correct own-model reference:
+
+| | flawed reference | own-model reference |
+|---|---|---|
+| `word_suppression` | +0.023, significant | **+0.020, not significant** |
+| `multiple_word_suppression` | +0.019, significant | **−0.023, significantly negative** |
+
+Both apparent suppression gains were artefacts of the fine-tuned model simply using those
+keywords less often in general, not of it suppressing them more when asked. That is precisely the
+confound the extra rollouts were generated to remove, and it moved a result from "modest gain" to
+"significant decline".
+
+**On aggregation.** The raw macro is dominated by `lowercase_thinking`, which sits at 0.933 on a
+model that is not trying, because ordinary English prose is already overwhelmingly lowercase — it
+contributes a third of the macro's level and can move it almost not at all. Normalising each mode
+by its own base floor, `(score − floor) / (1 − floor)`, expresses every mode as the fraction of
+its available room actually used and makes them comparable: **+0.032** overall, i.e. the
+fine-tune closed about 3 % of the available headroom, essentially all of it in one mode. Both are
+reported because the normalisation depends on floor estimates that are themselves measured with
+noise.
+
+---
+
 ## 4b. ReasonIF — continuous scoring
 
 Same partial-credit treatment applied in-distribution (paired bootstrap, 5,000 resamples):
