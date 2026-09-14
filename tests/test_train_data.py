@@ -109,3 +109,51 @@ class TestLoraTargets:
         assert not any("visual" in n for n in names)
         assert not any(n.startswith("mtp") for n in names)
         assert not any(n.endswith("lm_head") for n in names)
+
+
+class TestReasoningSurvivesTheChatTemplate:
+    """A chat template that silently drops <think>...</think> from the assistant turn would
+    train on answers only, with every diagnostic looking healthy: loss falls, the masking stats
+    are sane, the adapter is non-zero. It surfaces at eval as "fine-tuning did nothing".
+
+    This is not hypothetical. DeepSeek-R1-Distill's template does exactly that, while its
+    *generation* prompt still prefills <think> -- so inference looks correct and training is
+    empty. Assert the reasoning survives before spending GPU time on any new model.
+    """
+
+    REASONING = "UNIQUE_REASONING_SENTINEL"
+    ANSWER = "UNIQUE_ANSWER_SENTINEL"
+
+    def _messages(self):
+        return [
+            {"role": "user", "content": "question"},
+            {"role": "assistant", "content": f"<think>\n{self.REASONING}\n</think>\n\n{self.ANSWER}"},
+        ]
+
+    def test_fake_template_round_trip(self):
+        rendered = FakeTok().apply_chat_template(self._messages(), tokenize=False)
+        assert self.REASONING in rendered, "reasoning was dropped by the template"
+        assert self.ANSWER in rendered
+
+    def test_qwen35_template_keeps_the_reasoning(self):
+        # The real tokenizer, if the model is cached locally; skipped otherwise so CI stays offline.
+        transformers = pytest.importorskip("transformers")
+        try:
+            tok = transformers.AutoTokenizer.from_pretrained(
+                "Qwen/Qwen3.5-9B", local_files_only=True
+            )
+        except Exception:
+            pytest.skip("Qwen3.5-9B tokenizer not cached locally")
+        rendered = tok.apply_chat_template(self._messages(), tokenize=False)
+        assert self.REASONING in rendered, (
+            "the chat template dropped the think block: training would see answers only"
+        )
+        assert self.ANSWER in rendered
+        assert rendered.count("<think>") == 1, "think tag duplicated by the template"
+
+    def test_encode_supervises_the_reasoning_tokens(self):
+        tok = FakeTok()
+        ids, labels = encode(tok, self._messages(), 10_000)
+        supervised = "".join(chr(i) for i, l in zip(ids, labels) if l != IGNORE_INDEX)
+        # Character-level fake tokenizer, so the sentinel appears verbatim in supervised text.
+        assert self.REASONING in supervised, "reasoning present but not supervised"

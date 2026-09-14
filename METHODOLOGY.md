@@ -564,3 +564,29 @@ are richer and were written to align SFT with eval, so the hybrid may well produ
 training rows than the blog-era recipe. It is simply not the blog-era recipe. Rebuilding Stage 2
 under option (a) would cost ~266 editor calls and a retrain (about 45 minutes total, plus a
 re-eval).
+
+## Before porting to another model: assert the reasoning survives the template
+
+Verified on `deepseek-ai/DeepSeek-R1-Distill-Llama-8B`, a natural candidate for a second model:
+
+    input  : <think>\nMY REASONING HERE\n</think>\n\nTHE ANSWER
+    render : <｜begin▁of▁sentence｜><｜User｜>Q<｜Assistant｜>\n\nTHE ANSWER<｜end▁of▁sentence｜>
+
+**Its chat template silently deletes the think block from an assistant turn.** The answer
+survives; the reasoning does not. Meanwhile its *generation* prompt does prefill `<think>\n`, so
+inference looks entirely correct while training would see answers only.
+
+Nothing would fail. Loss falls, `supervised_fraction` stays sane, every `lora_B` tensor ends up
+non-zero, the adapter saves. It surfaces only at evaluation, as "fine-tuning did nothing" —
+which is the *same* signature as the vLLM-ignoring-LoRA bug, and as a fine-tune that genuinely
+did not work. Three times in this project a silent no-op nearly passed as a result.
+
+Two changes a DeepSeek port would need: build the assistant turn manually rather than through
+`apply_chat_template`, and make `ASSISTANT_HEADER` model-specific (`<｜Assistant｜>` rather than
+`<|im_start|>assistant\n`). The second fails loudly — `render()` already raises when the header
+is missing. The first would not, which is why `tests/test_train_data.py` now round-trips a
+sentinel through the real tokenizer and asserts the reasoning is both present and supervised.
+
+**The general rule, earned the expensive way: before spending GPU time on a new model, assert
+that the thing you are training on actually survives the pipeline.** One round-trip test, two
+minutes, against a class of bug that costs a day and looks like a finding.
