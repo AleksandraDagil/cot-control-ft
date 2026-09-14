@@ -11,10 +11,10 @@ continuous-scoring design is in `CONTINUOUS_SCORING.md`.
 
 ## 1. Headline
 
-| suite | base | step-60 | METR's Qwen3-8B for scale |
-|---|---:|---:|---|
-| ReasonIF (in-distribution) | 5.7 % | **23.7 %** | 20.9 → 43.8 |
-| CoTControl (out-of-distribution) | 0.0 % | **0.8 %** | 1.1 → 5.6 |
+| suite | base | step-60 (240 ex) | step-final (920 ex) | METR's Qwen3-8B |
+|---|---:|---:|---:|---|
+| ReasonIF (in-distribution) | 5.7 % | **23.7 %** | — | 20.9 → 43.8 |
+| CoTControl (out-of-distribution) | 0.0 % | **0.8 %** | **1.5 %** | 1.1 → 5.6 |
 
 **The qualitative claim replicates: ~240 SFT examples of instruction-following reasoning data
 produce a large in-distribution gain and a small out-of-distribution one. The OOD magnitude does
@@ -114,6 +114,58 @@ question-sampling variance but not run-to-run variance; the ReasonIF replicates 
 latter is real. Per-mode floors differ enormously (`lowercase` starts at 0.93 by virtue of
 ordinary English, `end_of_sentence` at 0.04), so cross-mode averaging of raw scores is only
 meaningful for deltas, not levels.
+
+---
+
+## 3b. Does the OOD effect grow with training?
+
+`step-final` (230 steps ≈ 920 examples, ~4× METR's headline) evaluated on the same 2,700
+rollouts. **0.8 % was not a ceiling — but the growth is entirely one mode.**
+
+| mode | base | step-60 (240 ex) | step-final (920 ex) | n | 80 % CI |
+|---|---:|---:|---:|---:|---:|
+| **uppercase_thinking** | 0.0 | 5.9 | **12.4** | 36 | **9.9–14.9** |
+| lowercase_thinking | 0.0 | 0.4 | 1.0 | 3 | 0.3–1.8 |
+| multiple_word_suppression | 0.0 | 0.4 | 0.0 | 0 | — |
+| word_suppression | 0.0 | 0.4 | 0.0 | 0 | — |
+| alternating_case, end_of_sentence, ignore_question, meow_between_words, repeat_sentences | 0.0 | 0.0 | 0.0 | 0 | — |
+| **macro** | **0.0** | **0.8** | **1.5** | 39 | |
+
+Macro roughly doubles with roughly 4× the data, and `uppercase_thinking` doubles with it
+(5.9 → 12.4 %, CI comfortably excluding zero). **36 of the 39 compliant rollouts are that one
+mode.** The two suppression modes that showed 0.4 % at step-60 were single rollouts and have
+returned to zero, confirming they were noise. Five modes have never produced a single compliant
+rollout across 8,100 evaluated rollouts.
+
+Continuous scoring makes the same point far more sharply:
+
+| mode | base | step-60 | step-final | delta vs base | 80 % CI |
+|---|---:|---:|---:|---:|---:|
+| **uppercase_thinking** | 0.135 | 0.323 | **0.605** | **+0.470** | [+0.437, +0.502] |
+| word_suppression | 0.418 | 0.448 | 0.471 | +0.053 | [+0.036, +0.071] |
+| multiple_word_suppression | 0.044 | 0.061 | 0.066 | +0.022 | [+0.011, +0.033] |
+| repeat_sentences | 0.295 | 0.267 | 0.286 | −0.009 | [−0.017, −0.001] |
+| lowercase_thinking | 0.932 | 0.925 | 0.916 | −0.016 | [−0.026, −0.008] |
+| end_of_sentence | 0.038 | 0.008 | 0.014 | −0.024 | [−0.028, −0.020] |
+| meow_between_words | 0.115 | 0.056 | 0.060 | −0.056 | [−0.062, −0.050] |
+| **alternating_case** | 0.439 | 0.248 | 0.298 | **−0.141** | [−0.155, −0.127] |
+| **macro** | 0.302 | 0.292 | **0.339** | +0.037 | |
+
+`uppercase_thinking` reaches **0.605** — the model now writes the majority of its reasoning in
+caps when asked, from a base of 0.135. Nothing else comes close. The modes that regressed at
+step-60 partially recover by step-final but none returns to baseline, so the negative transfer is
+attenuated by more training rather than reversed.
+
+**This is the central result of the replication.** More data monotonically improves the *one* OOD
+constraint that has a direct analogue in the training set (`english_capital` → uppercase
+reasoning) and does essentially nothing for the eight that do not. Whatever the fine-tune is
+teaching, it is not a general "follow reasoning-format instructions" capability — it is
+format-specific imitation that happens to transfer when the target format is one it was trained
+on. METR's headline number would be reproduced by a model that had learned only this.
+
+Secondary movements at step-final: accuracy drifts down slightly (55.6 → 55.2 → 53.6 %),
+meta-discussion partially rebounds (94.9 → 63.8 → 70.5 %), and truncation falls (4.3 → 7.9 →
+2.8 %).
 
 ---
 
