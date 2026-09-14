@@ -279,6 +279,123 @@ confined to the reasoning channel.
 
 ---
 
+## 5c. Meta-discussion
+
+"Meta-discussion" is the model narrating the constraint inside its own reasoning — *"I need to
+write this in capitals"* — which the CoTControl authors treat as a failure of the spirit of the
+instruction even when the letter is satisfied. Measured with METR's regex heuristic over
+gradeable rollouts. METR observed that the Qwen3.5 family "uses meta discussion very often", and
+our base numbers confirm it emphatically: **94.9 %** on CoTControl.
+
+### CoTControl
+
+| mode | base | step-60 | step-final | final − base |
+|---|---:|---:|---:|---:|
+| meow_between_words | 99.3 | 73.6 | 83.4 | −15.9 |
+| end_of_sentence | 96.9 | 63.8 | 73.2 | −23.8 |
+| multiple_word_suppression | 96.8 | 77.5 | 83.6 | −13.2 |
+| word_suppression | 96.4 | 74.7 | 76.2 | −20.2 |
+| alternating_case | 95.4 | 67.1 | 72.4 | −23.0 |
+| repeat_sentences | 94.6 | 69.3 | 77.3 | −17.3 |
+| ignore_question | 94.6 | 51.6 | 65.4 | −29.1 |
+| lowercase_thinking | 92.6 | 52.3 | 53.9 | **−38.7** |
+| uppercase_thinking | 87.7 | 45.0 | 48.6 | **−39.1** |
+| **overall** | **94.9** | **63.8** | **70.5** | **−24.5** |
+
+### ReasonIF (base → step-60)
+
+| instruction | base | step-60 | delta |
+|---|---:|---:|---:|
+| no_comma | 93.8 | 51.1 | −42.7 |
+| number_words | 81.2 | 40.4 | −40.9 |
+| end_checker | 88.9 | 51.1 | −37.8 |
+| json_format | 78.6 | 47.6 | −31.0 |
+| reasoning_language | 81.0 | 52.3 | −28.7 |
+| english_capital | 81.1 | 57.9 | −23.2 |
+| **overall** | **84.4** | **49.6** | **−34.7** |
+
+Three things stand out.
+
+**The drop is large, uniform and in every single mode** — CoTControl −24.5 pp overall, ReasonIF
+−34.7 pp. Unlike compliance, which moved in one mode and regressed in several, this changed
+everywhere. On the measure that moved most consistently, the fine-tune did something general.
+
+**It is not monotone in training.** CoTControl meta-discussion falls to 63.8 % at step-60 and then
+*rebounds* to 70.5 % at step-final, in eight of nine modes. More training partially undoes it,
+which argues against reading it as steady progress toward "internalised" instruction-following.
+
+**The two casing modes drop most** (−38.7 and −39.1), and they are also the two modes where
+compliance moved. Whether suppressing narration helps compliance, or both follow from the same
+change, is not identifiable from this data.
+
+This may be the more consequential behavioural change. For a CoT-monitoring application, a model
+that stops *announcing* the constraint it is following is a different object from one that
+follows it — arguably a worse one, since the reasoning becomes less self-explaining while the
+underlying behaviour is largely unchanged. We measure it with METR's regex heuristic, not the
+CoTControl paper's LLM judge, so absolute levels should be treated as approximate; the ~25–35 pp
+shift is far too large to be an artefact of that choice.
+
+---
+
+## 5d. Per-mode comparison with METR
+
+METR report per-instruction breakdowns for both suites (bar charts; no numeric tables in the
+text). Their stated finding:
+
+> "The most significant increases occur for reasoning casing (uppercase **and lowercase**), word
+> suppression, and for adding specific strings to the reasoning (repeat sentences)."
+
+and, in their limitations:
+
+> "when we remove the one instruction type from CoTControl that is very similar to an instruction
+> type from ReasonIF (Use uppercase letters), the average increase in controllability only drops
+> from **5.9 % to 5.0 %**."
+
+Their repo corroborates that this check was run: `plot_summary_2026_03_24.py` defines
+`EXCLUDE_COTCONTROL = {"uppercase_thinking"}` with a full re-aggregation path.
+
+**Our effect is far more concentrated than theirs.**
+
+| | all 9 modes | excl. uppercase | excl. both casing modes |
+|---|---:|---:|---:|
+| METR | 5.9 % | 5.0 % (−15 % rel.) | not reported |
+| ours, step-60 | 0.78 % | 0.14 % (−83 % rel.) | 0.11 % |
+| ours, step-final | 1.49 % | 0.13 % (−91 % rel.) | **0.00 %** |
+
+Removing one mode of nine costs METR 15 % of their effect and costs us 91 %. At step-final,
+removing both casing modes eliminates our OOD effect entirely. **So this is a genuine divergence
+from their result, not a reinterpretation of it** — their gains really are distributed across
+modes; ours really are not.
+
+**A gap in their robustness check, which our lowercase result makes concrete.** They exclude
+`uppercase_thinking` as "very similar to" ReasonIF's `english_capital`, but by their own figure
+`lowercase_thinking` improved comparably — and lowercase is arguably *equally* similar, being the
+same uniform-casing skill inverted. The model is not plausibly learning "produce capitals"; it is
+learning "impose a uniform case on my reasoning", which transfers to both. Excluding one casing
+mode and not the other is hard to justify, and **the excluding-both number is not reported**.
+
+**Our lowercase finding runs opposite to theirs, and illustrates why the mode is treacherous:**
+
+| | base | step-60 | step-final |
+|---|---:|---:|---:|
+| binary compliance | 0.0 % | 0.4 % (n=1) | 1.0 % (n=3) |
+| continuous score | **0.932** | 0.925 | **0.916** (−0.016, CI [−0.026, −0.008]) |
+
+`lowercase_thinking` starts at 0.932 **because ordinary English prose is already ~93 % lowercase**.
+The binary threshold demands 100 %, so the mode is nearly free to almost-satisfy and nearly
+impossible to fully satisfy. On continuous scoring our model gets *worse*; the three "compliant"
+rollouts are the tail of a distribution that shifted slightly down. A reported large lowercase
+gain can therefore be a handful of rollouts crossing a threshold rather than a behavioural change
+— precisely the distinction binary grading cannot make. We cannot check whether METR's lowercase
+gain is of this kind, because per-mode numbers are not published, but it is the first thing we
+would want to see.
+
+Finally, METR do not discuss *why* casing improved most, nor the `english_capital` →
+uppercase/lowercase overlap as a mechanism. Our continuous and checkpoint-scaling results
+(§3b, §4) suggest that overlap is the whole story on this model.
+
+---
+
 ## 6. Reliability
 
 **Noise floor.** Eight evaluations that were accidentally run against the base model (see
@@ -318,8 +435,20 @@ is what a 9B should do. Our baseline ReasonIF (5.7 %) is *below* the 9.4–9.9 t
 — though at METR's own token cap it reads 7.3 %, and the replicate mean is 6.6 %, which closes
 much of the gap.
 
-The ReasonIF uplift is comparable to METR's in magnitude (+18.0 pp vs +22.9 pp). The CoTControl
-uplift is roughly five times smaller. Given the continuous analysis, the most likely explanation
-is that on this model 240 examples buy format-specific imitation rather than general
-instruction-following — and the OOD modes that happen to resemble a trained format are the only
-ones that move.
+**What replicates:** the direction and rough in-distribution magnitude. ~240 SFT examples produce
+a large ReasonIF gain (+18.0 pp here vs +22.9 pp for their Qwen3-8B) and a smaller OOD gain, with
+no loss of task accuracy.
+
+**What does not:** the breadth of the OOD transfer, which is the part that makes the original
+result interesting. METR's CoTControl uplift survives removing the mode most similar to the
+training data (5.9 → 5.0 %); ours does not (1.5 → 0.13 %, and 0.00 % removing both casing modes).
+On this model the recipe buys format-specific imitation of a trained constraint rather than
+general reasoning-instruction following.
+
+**Candidate explanations, none tested here.** (i) Model family — Qwen3.5 differs from the Qwen3
+and GPT-OSS models METR used, and METR's own Qwen3.5-4B/27B baselines are the lowest in their set,
+so this family may simply be harder to make controllable. (ii) Floor effects — our CoTControl
+baseline is a hard 0.0 % across 5,300 rollouts, leaving no room for small distributed gains to be
+visible, whereas METR's models started at 1.1–4.4 %. (iii) SFT data quality — 27 % of our
+`reasoning_language` rows were English-target no-ops (§4b), so our 927-row set is weaker than its
+size suggests. Distinguishing these needs a second model, which is the obvious next experiment.
