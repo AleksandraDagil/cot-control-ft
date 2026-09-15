@@ -189,7 +189,7 @@ less anyway". Paired bootstrap over questions, 5,000 resamples, 80 % CI.
 | **alternating_case** | 0.0 | 0.0 | +0.0 | 0.403 | 0.214 | **−0.189** | [−0.203, −0.175] | **yes (−)** |
 | ignore_question | 0.0 | 0.0 | +0.0 | — | — | — | not scored¹ | |
 | **macro (raw)** | **0.00** | **0.78** | **+0.78** | **0.324** | **0.308** | **−0.016** | | |
-| **macro (headroom-normalised)** | | | | 0.000 | 0.032 | **+0.032** | | |
+| **macro (headroom-normalised)** | | | | 0.000 | −0.043 | **−0.043** | | |
 
 ¹ Needs a judge asked for a count of violating sentences rather than a verdict; designed but not
 run. It is the only rule in the set with a per-rollout API cost.
@@ -216,10 +216,31 @@ confound the extra rollouts were generated to remove, and it moved a result from
 model that is not trying, because ordinary English prose is already overwhelmingly lowercase — it
 contributes a third of the macro's level and can move it almost not at all. Normalising each mode
 by its own base floor, `(score − floor) / (1 − floor)`, expresses every mode as the fraction of
-its available room actually used and makes them comparable: **+0.032** overall, i.e. the
-fine-tune closed about 3 % of the available headroom, essentially all of it in one mode. Both are
-reported because the normalisation depends on floor estimates that are themselves measured with
-noise.
+its available room actually used:
+
+| mode | raw Δ | as fraction of that mode's headroom |
+|---|---:|---:|
+| uppercase_thinking | +0.188 | **+0.217** |
+| word_suppression | +0.020 | +0.041 |
+| multiple_word_suppression | −0.023 | −0.027 |
+| end_of_sentence | −0.029 | −0.030 |
+| repeat_sentences | −0.028 | −0.040 |
+| meow_between_words | −0.062 | −0.071 |
+| lowercase_thinking | −0.008 | **−0.117** |
+| alternating_case | −0.189 | **−0.317** |
+| **macro** | **−0.016** | **−0.043** |
+
+**Both aggregations are negative, and the normalised one is more so.** Normalising makes two
+declines look much worse than their raw size suggests: `lowercase_thinking` loses only 0.008 in
+absolute terms but that is 12 % of the little headroom it had, and `alternating_case` gives up
+nearly a third of its available room. On this measure the fine-tune is net *harmful* to
+out-of-distribution reasoning control, with one large exception.
+
+*Correction.* An earlier version of this section reported the normalised macro as **+0.032**. That
+was wrong: the helper clipped normalised scores to [0, 1], so every regression became exactly 0
+and the average was structurally incapable of showing harm. Unclipped, it is **−0.043**. The bug
+inverted the sign of the headline aggregate — clipping is now opt-in and documented as invalid
+for any comparison between two models.
 
 ---
 

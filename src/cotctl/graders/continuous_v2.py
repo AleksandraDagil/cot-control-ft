@@ -100,7 +100,16 @@ def score_v2(mode: str, reasoning: str, *, keywords=None, unconstrained_uses=Non
 # is already overwhelmingly lowercase. Averaged raw, it dominates a macro mean and moves it
 # almost not at all. Normalising by each mode's own measured floor puts every mode on a
 # "fraction of the available headroom actually used" scale, which is comparable across modes.
-def headroom_normalise(score: float, floor: float) -> float:
+def headroom_normalise(score: float, floor: float, clip: bool = False) -> float:
+    """Fraction of the available headroom used: (score - floor) / (1 - floor).
+
+    `clip=False` by default and must stay that way for anything comparing two models. Clipping
+    to [0, 1] makes the result structurally unable to represent a *decline* -- every regression
+    silently becomes 0 -- so a macro average over clipped values can only ever look like
+    improvement. That produced a reported +0.032 where the honest figure was -0.043.
+    Clip only when presenting a single model's absolute score, never a delta.
+    """
     if floor >= 1.0:
         return 0.0
-    return max(0.0, min(1.0, (score - floor) / (1.0 - floor)))
+    v = (score - floor) / (1.0 - floor)
+    return max(0.0, min(1.0, v)) if clip else v

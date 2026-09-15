@@ -98,5 +98,13 @@ class TestHeadroomNormalise:
         me = headroom_normalise(0.115 + 0.1 * (1 - 0.115), 0.115)
         assert lo == pytest.approx(me, abs=0.01)
 
-    def test_below_floor_clips_to_zero(self):
-        assert headroom_normalise(0.90, 0.932) == 0.0
+    def test_below_floor_is_negative_by_default(self):
+        # A decline must stay negative: clipping would make a macro average unable to show harm.
+        assert headroom_normalise(0.90, 0.932) < 0
+
+    def test_clip_is_opt_in_for_single_model_scores(self):
+        assert headroom_normalise(0.90, 0.932, clip=True) == 0.0
+
+    def test_a_small_raw_decline_is_large_against_a_tiny_headroom(self):
+        # lowercase: -0.008 raw from a 0.933 floor is -12% of its available room.
+        assert headroom_normalise(0.925, 0.933) < -0.10

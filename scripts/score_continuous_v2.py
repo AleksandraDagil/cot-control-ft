@@ -117,9 +117,8 @@ def main() -> int:
 
     # Headroom-normalised: each mode scaled by its own base floor, so lowercase (floor ~0.93)
     # cannot dominate a macro mean it can barely move.
-    nb = st.mean([headroom_normalise(o["cont_base"], o["cont_base"]) for o in scored])
     nf = st.mean([headroom_normalise(o["cont_ft"], o["cont_base"]) for o in scored])
-    print(f"{'MACRO (headroom-norm.)':<27}{'':>9}{'':>8}{'':>7}   {nb:>10.3f}{nf:>9.3f}{nf-nb:>+8.3f}")
+    print(f"{'MACRO (headroom-norm. Δ)':<27}{'':>9}{'':>8}{'':>7}   {0.0:>10.3f}{nf:>9.3f}{nf:>+8.3f}")
     print("\n  headroom-normalised = (score - base floor) / (1 - base floor): the fraction of the")
     print("  available room each mode actually used, comparable across modes with different floors.")
 
