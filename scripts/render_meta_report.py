@@ -135,10 +135,14 @@ def main() -> int:
     start = s.index("## LLM judge (CoTControl paper's prompt, gpt-5-mini) — PENDING")
     end = s.index("## How to reduce it further")
     s = s[:start] + body + "\n" + s[end:]
-    s = s.replace("**Status: LLM-judge section pending — blocked on OpenRouter credit (balance ≈ $0 on 2026-09-17).**\n"
-                  "Everything else below is complete. Re-run `python scripts/judge_meta.py` once credit is added;\n"
-                  "verdicts are cached, so the run resumes rather than restarts.",
-                  f"**Status: complete.** {len(rows):,} rollouts judged with the CoTControl paper's LLM judge.")
+    have = sorted({r["label"] for r in rows}); missing = [c for c in CKPTS if c not in have]
+    status = (f"**Status: complete.** {len(rows):,} rollouts judged with the CoTControl paper's LLM judge."
+              if not missing else
+              f"**Status: partial.** {len(rows):,} rollouts judged ({', '.join(have)} complete); "
+              f"{', '.join(missing)} pending — both the OpenRouter and the OpenAI key ran out of credit "
+              f"mid-run. `python scripts/judge_meta.py` resumes from cache once either is topped up.")
+    import re as _re
+    s = _re.sub(r"\*\*Status:.*?\n\n", status + "\n\n", s, count=1, flags=_re.S)
     p.write_text(s, encoding="utf-8"); print(f"wrote META_DISCUSSION.md ({len(rows)} verdicts)"); return 0
 
 

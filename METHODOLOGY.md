@@ -590,3 +590,30 @@ sentinel through the real tokenizer and asserts the reasoning is both present an
 **The general rule, earned the expensive way: before spending GPU time on a new model, assert
 that the thing you are training on actually survives the pipeline.** One round-trip test, two
 minutes, against a class of bug that costs a day and looks like a finding.
+
+### Additional issues from the meta-discussion judge run (2026-09-17)
+
+**29. One `asyncio.run()` per dataset, one shared Semaphore.** `LLMJudge.__init__` creates an
+`asyncio.Semaphore`, which binds to the first event loop that uses it. `judge_meta.py` called
+`asyncio.run()` once per (checkpoint, suite), so every set after the first got a fresh loop and
+failed instantly with `Semaphore is bound to a different event loop` — 5,596 of 8,258 rollouts,
+zero HTTP calls made. The first set completed cleanly, which is what made it look like a quota
+problem. Create asyncio primitives inside the coroutine that will use them, and run all work under
+a single `asyncio.run()`.
+
+**30. `pkill -f` self-match via a *log filename*.** Problem #23 again, from a new angle: the kill
+command mentioned `judge_meta2.log` elsewhere on the same line, and the pattern `judge_[m]eta`
+matches the substring `judge_meta` inside that filename. It killed the target, the watcher, and
+the shell issuing it. Any literal in the same command that contains the pattern is a vector — not
+just the script name. Match on a PID list computed by a command that mentions nothing else, or
+use `ps aux | grep "[s]cripts/…"` with the bracket on the first character.
+
+**31. A `&&` gate that checked for output, not for success.** The multi-set smoke test before the
+relaunch was gated on the summary lines *printing*, not on `errors=0`. It printed `n=0 errors=3`
+and the full run launched anyway — into 6,475 consecutive 429s. A gate must assert the property
+you care about; "it ran" is not that property.
+
+**32. Two API keys exhausted in one afternoon.** OpenRouter balance was ≈ $0 before the run; the
+replacement OpenAI project key had roughly $1–2 of credit and ran dry after ~2,600 calls
+(`429 — You have no credits remaining`). Check the balance *before* a batch job, and treat a
+sudden transition from all-200 to all-429 as billing, not code.
