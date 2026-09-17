@@ -82,17 +82,24 @@ def main() -> int:
 
     out_dir = REPO / "results" / "meta_judge"
     out_dir.mkdir(parents=True, exist_ok=True)
-    judge = LLMJudge(model=args.model, cache_path=out_dir / "meta_judge_cache.jsonl",
-                     concurrency=args.concurrency)
-    log.info("judge model=%s base_url=%s", judge.model, judge.base_url)
+    # ONE event loop for every set. LLMJudge.__init__ creates an asyncio.Semaphore, which is
+    # bound to whichever loop first uses it; a separate asyncio.run() per set gave each set a
+    # fresh loop, and every set after the first failed instantly with "Semaphore is bound to a
+    # different event loop" -- 5,596 rollouts, zero HTTP calls made, on the first full run.
+    async def run_all() -> list[dict]:
+        judge = LLMJudge(model=args.model, cache_path=out_dir / "meta_judge_cache.jsonl",
+                         concurrency=args.concurrency)
+        log.info("judge model=%s base_url=%s", judge.model, judge.base_url)
+        rows: list[dict] = []
+        for label in args.labels:
+            for suite in args.suites:
+                if not (REPO / "results" / label / f"{suite}_rollouts.jsonl").exists():
+                    log.warning("no %s rollouts for %s; skipping", suite, label)
+                    continue
+                rows.extend(await judge_suite(judge, label, suite, args.limit))
+        return rows
 
-    all_rows: list[dict] = []
-    for label in args.labels:
-        for suite in args.suites:
-            if not (REPO / "results" / label / f"{suite}_rollouts.jsonl").exists():
-                log.warning("no %s rollouts for %s; skipping", suite, label)
-                continue
-            all_rows.extend(asyncio.run(judge_suite(judge, label, suite, args.limit)))
+    all_rows = asyncio.run(run_all())
 
     with open(out_dir / "meta_verdicts.jsonl", "w", encoding="utf-8") as f:
         for r in all_rows:
