@@ -18,6 +18,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import re
 import sys
 from collections import Counter, defaultdict
@@ -73,13 +74,17 @@ def main() -> int:
     ap.add_argument("--suites", nargs="+", default=["cotcontrol", "reasonif"])
     ap.add_argument("--limit", type=int, default=None, help="debug: rollouts per (label, suite)")
     ap.add_argument("--concurrency", type=int, default=16)
+    # OpenRouter names it openai/gpt-5-mini; a direct OpenAI endpoint wants gpt-5-mini.
+    ap.add_argument("--model", default=os.environ.get("JUDGE_MODEL", "gpt-5-mini"))
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
     out_dir = REPO / "results" / "meta_judge"
     out_dir.mkdir(parents=True, exist_ok=True)
-    judge = LLMJudge(cache_path=out_dir / "meta_judge_cache.jsonl", concurrency=args.concurrency)
+    judge = LLMJudge(model=args.model, cache_path=out_dir / "meta_judge_cache.jsonl",
+                     concurrency=args.concurrency)
+    log.info("judge model=%s base_url=%s", judge.model, judge.base_url)
 
     all_rows: list[dict] = []
     for label in args.labels:
