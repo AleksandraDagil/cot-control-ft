@@ -638,3 +638,11 @@ disagreement between two measures to one of them, confirm both saw the same inpu
 reference prompt truncates, report what fraction of the data the truncation removes, per condition,
 before using it for a between-condition comparison. Corrected in `META_DISCUSSION.md`,
 `RESULTS.md` §5c and the figures; an uncapped re-judge (≈ 3.5× tokens) was costed and not run.
+
+**35. `pgrep -f` self-match, third occurrence (2026-09-18).** Pausing the LLM strip run with
+`for p in $(pgrep -f 'strip_llm.py'); do kill $p; done` killed the Python process *and* the shell
+running the loop *and* the log watcher, because both shells' command lines contained the pattern
+(exit 144). Same failure class as #23 and #30. **Practice, now mechanical:** anchor process
+patterns to the start of the command line (`pgrep -f '^python scripts/strip_llm.py'`), or record
+the PID at launch (`$!`) and kill that. Never match a bare filename. No data lost: every judge call
+is cached (243 calls, 241/2,594 base rollouts) and the run resumes from the cache.
