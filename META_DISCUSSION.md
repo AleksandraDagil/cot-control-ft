@@ -1,6 +1,6 @@
 # Meta-discussion: regex heuristic vs LLM judge
 
-**Status: partial.** 2,594 rollouts judged (base complete); step-60, step-final pending — both the OpenRouter and the OpenAI key ran out of credit mid-run. `python scripts/judge_meta.py` resumes from cache once either is topped up.
+**Status: complete.** 8,258 rollouts judged with the CoTControl paper's LLM judge.
 
 ## What "meta-discussion" is and why it matters here
 
@@ -84,33 +84,66 @@ steal reasoning from the problem; "under-eliciting capability" is not the reason
 
 ## LLM judge results
 
-Judge: `gpt-5-mini` via the OpenAI API, CoTControl paper prompt verbatim. 2,594 rollouts judged.
+Judge: `gpt-5-mini` via the OpenAI API, CoTControl paper prompt verbatim. 8,258 rollouts judged.
 
 ### Meta-discussion rate: LLM judge vs regex
 
 | suite | checkpoint | n | **LLM judge** | regex | regex − LLM | agreement |
 |---|---|---:|---:|---:|---:|---:|
 | cotcontrol | base | 2594 | **75.4 %** (74.3 %–76.5 %) | 94.9 % | +19.5 pp | 80.1 % |
+| cotcontrol | step-60 (240 ex) | 2498 | **25.1 %** (24.0 %–26.2 %) | 63.8 % | +38.7 pp | 59.2 % |
+| cotcontrol | step-final (920 ex) | 2634 | **39.7 %** (38.5 %–40.9 %) | 70.5 % | +30.8 pp | 67.0 % |
+| reasonif | base | 262 | **61.1 %** (57.2 %–64.9 %) | 84.4 % | +23.3 pp | 70.6 % |
+| reasonif | step-60 (240 ex) | 270 | **24.1 %** (20.7 %–27.4 %) | 49.6 % | +25.6 pp | 55.2 % |
+
+### Does the base → step-60 drop survive the LLM judge?
+
+| | base | step-60 | Δ |
+|---|---:|---:|---:|
+| regex | 94.9 % | 63.8 % | -31.1 pp |
+| **LLM judge** | **75.4 %** | **25.1 %** | **-50.3 pp** (80 % CI -50.8 to -48.1, paired, n=2441) |
+
+step-final: LLM 39.7 % — rebounds after step-60 (regex showed a rebound to 70.5 %).
 
 ### Per mode (CoTControl)
 
 | mode | ckpt | n | LLM | regex | agree | regex-only | LLM-only |
 |---|---|---:|---:|---:|---:|---:|---:|
 | alternating_case | base | 281 | 80.8 % | 95.4 % | 85.4 % | 41 | 0 |
+| alternating_case | step-60 | 277 | 24.9 % | 67.1 % | 57.8 % | 117 | 0 |
+| alternating_case | step-final | 293 | 39.2 % | 72.4 % | 66.2 % | 98 | 1 |
 | end_of_sentence | base | 295 | 78.3 % | 96.9 % | 81.4 % | 55 | 0 |
+| end_of_sentence | step-60 | 276 | 21.0 % | 63.8 % | 57.2 % | 118 | 0 |
+| end_of_sentence | step-final | 291 | 36.1 % | 73.2 % | 62.2 % | 109 | 1 |
 | ignore_question | base | 294 | 84.0 % | 94.6 % | 89.5 % | 31 | 0 |
+| ignore_question | step-60 | 289 | 14.5 % | 51.6 % | 62.3 % | 108 | 1 |
+| ignore_question | step-final | 295 | 41.7 % | 65.4 % | 75.6 % | 71 | 1 |
 | lowercase_thinking | base | 285 | 69.8 % | 92.6 % | 77.2 % | 65 | 0 |
+| lowercase_thinking | step-60 | 281 | 16.4 % | 52.3 % | 58.4 % | 109 | 8 |
+| lowercase_thinking | step-final | 293 | 25.6 % | 53.9 % | 68.3 % | 88 | 5 |
 | meow_between_words | base | 296 | 89.5 % | 99.3 % | 90.2 % | 29 | 0 |
+| meow_between_words | step-60 | 269 | 35.7 % | 73.6 % | 60.6 % | 104 | 2 |
+| meow_between_words | step-final | 290 | 57.9 % | 83.4 % | 73.1 % | 76 | 2 |
 | multiple_word_suppression | base | 284 | 75.4 % | 96.8 % | 78.5 % | 61 | 0 |
+| multiple_word_suppression | step-60 | 271 | 33.9 % | 77.5 % | 53.5 % | 122 | 4 |
+| multiple_word_suppression | step-final | 293 | 54.3 % | 83.6 % | 64.5 % | 95 | 9 |
 | repeat_sentences | base | 296 | 68.6 % | 94.6 % | 74.0 % | 77 | 0 |
+| repeat_sentences | step-60 | 293 | 30.4 % | 69.3 % | 59.7 % | 116 | 2 |
+| repeat_sentences | step-final | 295 | 38.6 % | 77.3 % | 60.7 % | 115 | 1 |
 | uppercase_thinking | base | 284 | 57.0 % | 87.7 % | 68.7 % | 88 | 1 |
+| uppercase_thinking | step-60 | 269 | 13.4 % | 45.0 % | 68.4 % | 85 | 0 |
+| uppercase_thinking | step-final | 290 | 20.7 % | 48.6 % | 71.4 % | 82 | 1 |
 | word_suppression | base | 279 | 74.6 % | 96.4 % | 75.3 % | 65 | 4 |
+| word_suppression | step-60 | 273 | 36.3 % | 74.7 % | 54.9 % | 114 | 9 |
+| word_suppression | step-final | 294 | 43.2 % | 76.2 % | 61.6 % | 105 | 8 |
 
 `regex-only` = regex fires, judge says no narration (the suspected `constraint` false positives). `LLM-only` = judge sees narration the seven patterns miss.
 
 ### The `constraint`-only rollouts: what does the judge say?
 
 - base: 673 rollouts where only `constraint` fires → judge calls **58.4 %** of them meta-discussion.
+- step-60 (240 ex): 721 rollouts where only `constraint` fires → judge calls **17.2 %** of them meta-discussion.
+- step-final (920 ex): 718 rollouts where only `constraint` fires → judge calls **30.2 %** of them meta-discussion.
 
 If that share is low, the regex's headline rate is inflated by roughly that population (~26–29 % of all rollouts, flat across checkpoints); if high, the bare substring is a fair proxy after all.
 

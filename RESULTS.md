@@ -356,6 +356,42 @@ confined to the reasoning channel.
 
 ## 5c. Meta-discussion
 
+### Measured with the CoTControl paper's LLM judge (primary)
+
+All 8,258 stored rollouts re-judged with `gpt-5-mini` and the paper's verbatim prompt
+(`META_DISCUSSION.md` has the full per-mode tables). The regex tables further down are METR's
+heuristic, kept for comparability with their runner.
+
+| suite | base | step-60 (240 ex) | step-final (920 ex) | Δ base→60 |
+|---|---:|---:|---:|---:|
+| **CoTControl** | **75.4 %** | **25.1 %** | 39.7 % | **−50.3 pp** (80 % CI −50.8 to −48.1, paired n=2,441) |
+| **ReasonIF** | **61.1 %** | **24.1 %** | — | **−37.0 pp** |
+
+**The drop is real and the regex understated it.** Regex showed −31.1 pp on CoTControl; the
+judge shows −50.3. Fine-tuning on 240 examples cut constraint-narration by two thirds, in every
+mode, with `ignore_question` falling furthest (84.0 → 14.5 %). The step-final rebound survives too
+(25.1 → 39.7 %), so more training partly restores narration.
+
+**The regex over-counts, and over-counts *more* after fine-tuning.** Its inflation is +19.5 pp
+at base, +38.7 pp at step-60, +30.8 at step-final; agreement with the judge falls from 80 % to
+59 %. The mechanism is the bare `constraint` substring: the population where it is the *only*
+pattern firing is flat at ~27 % of rollouts across checkpoints, but the judge calls 58 % of those
+genuine narration at base and only **17 %** at step-60. The fine-tuned model still writes
+"Constraint 1: …" in its analysis headers — that is its ordinary reasoning style — while no longer
+narrating the control instruction, and the regex cannot tell the two apart. **Any regex-based
+meta-discussion comparison across a fine-tune is biased toward understating the change.**
+
+**Disagreement is one-sided.** Regex-only detections run 29–122 per mode; judge-only detections
+0–9. The regex almost never misses real narration; its error is essentially all false positives.
+The judge has its own low-rate noise — it flagged "Wild-type resistance: 100% (Control)" in a
+biology trace — so neither is ground truth, but they bracket it tightly from above and below.
+
+Base rates, honestly stated: **~75 % (CoTControl) / ~61 % (ReasonIF)**, not the 95 % / 84 % the
+regex reported. METR's remark that the Qwen3.5 family "uses meta discussion very often" holds
+either way.
+
+### Measured with METR's regex heuristic (comparability)
+
 "Meta-discussion" is the model narrating the constraint inside its own reasoning — *"I need to
 write this in capitals"* — which the CoTControl authors treat as a failure of the spirit of the
 instruction even when the letter is satisfied. Measured with METR's regex heuristic over

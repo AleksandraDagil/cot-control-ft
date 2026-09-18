@@ -132,7 +132,13 @@ def main() -> int:
     if a.dry_run:
         print(body); return 0
     p = REPO / "META_DISCUSSION.md"; s = p.read_text(encoding="utf-8")
-    start = s.index("## LLM judge (CoTControl paper's prompt, gpt-5-mini) — PENDING")
+    # Idempotent: the first render replaces the PENDING heading with the results heading, so a
+    # re-render must accept either anchor.
+    for anchor in ("## LLM judge (CoTControl paper's prompt, gpt-5-mini) — PENDING", "## LLM judge results"):
+        if anchor in s:
+            start = s.index(anchor); break
+    else:
+        raise SystemExit("no LLM-judge section anchor found in META_DISCUSSION.md")
     end = s.index("## How to reduce it further")
     s = s[:start] + body + "\n" + s[end:]
     have = sorted({r["label"] for r in rows}); missing = [c for c in CKPTS if c not in have]

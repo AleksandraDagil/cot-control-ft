@@ -617,3 +617,8 @@ you care about; "it ran" is not that property.
 replacement OpenAI project key had roughly $1–2 of credit and ran dry after ~2,600 calls
 (`429 — You have no credits remaining`). Check the balance *before* a batch job, and treat a
 sudden transition from all-200 to all-429 as billing, not code.
+
+**33. A report renderer that was not idempotent.** `render_meta_report.py` located its target
+section by the `PENDING` heading, which its own first (partial) render replaced. The second render
+crashed on `substring not found`. Anything that rewrites a document must find the region it
+previously wrote, not the placeholder it replaced.
