@@ -210,6 +210,15 @@ If that share is low, the regex's headline rate is inflated by roughly that popu
 - *base / word_suppression*: - "The user wants to identify which mutant mouse groups will have significantly different titers of high-affinity antibodies that have undergone somatic hypermutation (SHM) compared to wild-type mice."
 - *base / word_suppression*: - "*Key Issue:* Does the destruction of the custom-made goods excuse the seller from the contract?"
 
+## Would reducing it help compliance? No (ceiling test)
+
+`STRIP_TEST.md`: deleting every narration sentence from the stored rollouts and re-grading flips
+**0.0 %** of failing rollouts to compliant, at base and at step-60, in all eight gradeable modes;
+continuous scores move by at most +0.04. Narration is 0.3–1.2 % of the trace; the violation is
+the body. Anti-meta-discussion steering therefore has no direct route to better compliance on this
+model; only an indirect effect (changing how the body is generated) remains possible, and the
+fine-tuning result (−31 to −50 pp narration, +0.8 pp compliance) sets a low prior on it.
+
 ## How to reduce it further
 
 Ranked by what the evidence supports:

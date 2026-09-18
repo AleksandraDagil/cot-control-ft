@@ -403,6 +403,10 @@ window (genuine false positives plus some judge misses) and 587 beyond it (judge
 rows: 26. The judge also has low-rate noise of its own ("Wild-type resistance: 100% (Control)" in a
 biology trace). Neither is ground truth; together they bracket it.
 
+**Does narration cause the non-compliance? No.** Deleting every narration sentence from the stored
+rollouts and re-grading (`STRIP_TEST.md`) flips 0.0 % of failing rollouts at base or step-60;
+continuous scores move ≤ +0.04. Narration is 0.3–1.2 % of the text; the body itself violates.
+
 Base rates, honestly stated: **~75–80 % (CoTControl) / ~61–68 % (ReasonIF)** on the trace opening,
 higher over the full trace; the regex's 95 % / 84 % is an upper bound. METR's remark that the
 Qwen3.5 family "uses meta discussion very often" holds either way. Full analysis in
