@@ -128,6 +128,8 @@ opening of the trace*, not narration in the trace. Two consequences:
    29,727 chars narrates the instruction four separate ways ("The requirement is to add 'meow'…",
    "the instruction says…", "I am instructed to add 'meow'…"), all between chars 11,919 and
    28,707; the judge saw none of it and answered "no".
+![Where narration first appears, per checkpoint](figures/meta_first_hit_position.png)
+
 2. **The −50.3 pp headline is inflated, because fine-tuning moves narration later in the trace.**
    Where the regex first fires: median char **447 at base vs 6,635 at step-60** (3,309 at
    step-final); the share of regex-detected traces whose *first* hit is already beyond 10,000 chars

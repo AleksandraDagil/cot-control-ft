@@ -29,6 +29,8 @@ Script: `scripts/strip_regrade.py`; raw numbers: `results/strip_test/strip_regra
 narrate (strong pattern present), the share that flips fail → pass when narration is deleted is
 **0.0 % in all eight gradeable modes, base and step-60.**
 
+![Continuous score, unchanged vs all narration deleted](figures/strip_dumbbell.png)
+
 Continuous scores (higher = more compliant; `orig` = unchanged trace):
 
 | mode | base orig | base `strong` | base `all7` | base `judge` | step-60 orig | step-60 `strong` | step-60 `all7` | step-60 `judge` |
@@ -50,6 +52,13 @@ How much text the variants remove (share of characters): `preamble` 0–1.7 %, `
 characters.
 
 ## Why: the violation is the body, not the narration
+
+![Where the violation lives vs where the narration lives](figures/strip_where_violation_lives.png)
+
+For six modes with a countable violation unit (lowercase letters, uppercase letters, non-alternating
+words, forbidden-word uses, sentences not ending in the target), the share of violations inside
+narration sentences tracks the share of text those sentences occupy: 2–9 % in both cases. Narration
+is not where the violations concentrate. (`results/strip_test/violation_location.json`)
 
 Two direct measurements at base:
 

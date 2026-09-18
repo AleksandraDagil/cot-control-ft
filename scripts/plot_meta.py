@@ -109,4 +109,27 @@ ax.set_xlabel("rollouts (step-60, ~275 per mode)", color=INK2)
 ax.legend(frameon=False, loc="lower left", bbox_to_anchor=(0, 1.0), ncol=1, fontsize=9)
 ax.set_title("Most regex-only disagreements lie past the judge's 10,000-char window", loc="left", fontsize=11, color=INK, pad=58)
 fig.tight_layout(); fig.savefig(OUT/"meta_disagreement.png"); plt.close(fig)
+
+# ---- Fig 5: where narration first appears, per checkpoint, against the judge's 10k window -------
+import re as _re
+from cotctl.graders.cotcontrol import _META_PATTERNS as _PATS
+fig, ax = plt.subplots(figsize=(8.5, 4.2), dpi=150)
+for c in CK:
+    text = {(r["sample_id"], r["mode"]): r.get("reasoning") or "" for r in map(json.loads, open(REPO/f"results/{c}/cotcontrol_rollouts.jsonl"))}
+    pos = []
+    for r in cc[c]:
+        if not r["regex_meta"]: continue
+        low = text[(r["sample_id"], r["mode"])].lower()
+        pos.append(min(_re.search(p, low).start() for p in r["regex_patterns"]))
+    pos.sort(); n = len(pos)
+    ax.step(pos, [100 * (i + 1) / n for i in range(n)], where="post", color=RAMP[c], lw=2, label=f"{CKL[c].replace(chr(10), ' ')}  (median {pos[n//2]:,} chars)", zorder=3)
+    beyond = 100 * sum(x >= 10000 for x in pos) / n
+    ax.annotate(f"{beyond:.0f}% past the window", xy=(10000, 100 - beyond), xytext=(12, 0), textcoords="offset points", fontsize=9, color=INK2, va="center", bbox=dict(facecolor=SURF, edgecolor="none", pad=1.5), zorder=6)
+ax.axvline(10000, color=BASE, lw=1, zorder=2); ax.text(10000, 2, " judge sees only the first 10,000 chars", fontsize=9, color=MUTED, va="bottom")
+ax.set_xscale("log"); ax.set_xlim(50, 40000); ax.set_ylim(0, 100); ax.yaxis.grid(True, color=GRID, lw=1); ax.set_axisbelow(True)
+ax.spines["left"].set_visible(False); ax.spines["bottom"].set_color(BASE); ax.tick_params(length=0)
+ax.set_xlabel("character position of the first narration match (log scale)", color=INK2); ax.set_ylabel("% of narrating rollouts (cumulative)", color=INK2)
+ax.legend(frameon=False, loc="upper left", fontsize=9)
+ax.set_title("Fine-tuning moves narration later in the trace, past the judge's window", loc="left", fontsize=11, color=INK)
+fig.tight_layout(); fig.savefig(OUT/"meta_first_hit_position.png"); plt.close(fig)
 print("wrote", sorted(p.name for p in OUT.glob("meta_*.png")))

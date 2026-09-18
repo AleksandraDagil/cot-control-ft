@@ -1,0 +1,50 @@
+{
+ "base/uppercase_thinking": {
+  "pct_text_narration": 4.318079413674486,
+  "pct_violations_in_narration": 5.464174635540249
+ },
+ "base/lowercase_thinking": {
+  "pct_text_narration": 4.080668143441739,
+  "pct_violations_in_narration": 2.7036593669420554
+ },
+ "base/alternating_case": {
+  "pct_text_narration": 3.9454658990730103,
+  "pct_violations_in_narration": 5.139290723599327
+ },
+ "base/word_suppression": {
+  "pct_text_narration": 7.1839301523204515,
+  "pct_violations_in_narration": 9.334129266836706
+ },
+ "base/multiple_word_suppression": {
+  "pct_text_narration": 7.330062007933918,
+  "pct_violations_in_narration": 5.612561621325543
+ },
+ "base/end_of_sentence": {
+  "pct_text_narration": 6.880351148936918,
+  "pct_violations_in_narration": 4.296577040427155
+ },
+ "step-60/uppercase_thinking": {
+  "pct_text_narration": 1.864429020676221,
+  "pct_violations_in_narration": 1.9906286369955992
+ },
+ "step-60/lowercase_thinking": {
+  "pct_text_narration": 1.4155860590695386,
+  "pct_violations_in_narration": 0.8428020185505892
+ },
+ "step-60/alternating_case": {
+  "pct_text_narration": 3.083344754007309,
+  "pct_violations_in_narration": 3.7115937911524015
+ },
+ "step-60/word_suppression": {
+  "pct_text_narration": 3.8275795183423202,
+  "pct_violations_in_narration": 5.355824986821297
+ },
+ "step-60/multiple_word_suppression": {
+  "pct_text_narration": 3.748332630257218,
+  "pct_violations_in_narration": 2.8795074758135444
+ },
+ "step-60/end_of_sentence": {
+  "pct_text_narration": 3.4395018979953043,
+  "pct_violations_in_narration": 1.9414020057199235
+ }
+}
