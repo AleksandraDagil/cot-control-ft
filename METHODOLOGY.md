@@ -622,3 +622,19 @@ sudden transition from all-200 to all-429 as billing, not code.
 section by the `PENDING` heading, which its own first (partial) render replaced. The second render
 crashed on `substring not found`. Anything that rewrites a document must find the region it
 previously wrote, not the placeholder it replaced.
+
+**34. Comparing two detectors that were not shown the same input (2026-09-18).** The CoTControl
+paper's meta-discussion judge prompt truncates the trace to its first 10,000 characters; the METR
+regex reads the whole trace. 97 % of base CoTControl traces exceed the cap. The first version of
+`META_DISCUSSION.md` attributed the regex−judge gap (+19.5 → +38.7 pp) entirely to regex false
+positives and titled a figure "the regex is almost always the one that's wrong". Re-running the
+regex on the judge's own window cut the gap to +5.1 → +14.3 pp; 62 % of regex-yes/judge-no rows
+had every match beyond the cap. Worse, the cap is *not* neutral across checkpoints: fine-tuning
+moves narration later in the trace (median first hit 447 → 6,635 chars; first hit beyond the cap
+15 % → 38 %), so the judge's headline −50.3 pp is biased upward relative to the full-trace −31.1.
+Found only because the user asked for five side-by-side regex-yes/judge-no examples and the third
+one narrated the instruction four times, all past char 11,919. **Practice:** before attributing a
+disagreement between two measures to one of them, confirm both saw the same input; when a
+reference prompt truncates, report what fraction of the data the truncation removes, per condition,
+before using it for a between-condition comparison. Corrected in `META_DISCUSSION.md`,
+`RESULTS.md` §5c and the figures; an uncapped re-judge (≈ 3.5× tokens) was costed and not run.

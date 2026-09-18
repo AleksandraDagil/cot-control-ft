@@ -367,28 +367,46 @@ heuristic, kept for comparability with their runner.
 | **CoTControl** | **75.4 %** | **25.1 %** | 39.7 % | **−50.3 pp** (80 % CI −50.8 to −48.1, paired n=2,441) |
 | **ReasonIF** | **61.1 %** | **24.1 %** | — | **−37.0 pp** |
 
-**The drop is real and the regex understated it.** Regex showed −31.1 pp on CoTControl; the
-judge shows −50.3. Fine-tuning on 240 examples cut constraint-narration by two thirds, in every
-mode, with `ignore_question` falling furthest (84.0 → 14.5 %). The step-final rebound survives too
-(25.1 → 39.7 %), so more training partly restores narration.
+**The drop is real under every measure; its size is between −31 and −50 pp.** Fine-tuning on
+240 examples cut constraint-narration sharply in every mode, with `ignore_question` falling
+furthest (84.0 → 14.5 % by the judge). The step-final rebound survives too (25.1 → 39.7 %), so
+more training partly restores narration.
 
-**The regex over-counts, and over-counts *more* after fine-tuning.** Its inflation is +19.5 pp
-at base, +38.7 pp at step-60, +30.8 at step-final; agreement with the judge falls from 80 % to
-59 %. The mechanism is the bare `constraint` substring: the population where it is the *only*
-pattern firing is flat at ~27 % of rollouts across checkpoints, but the judge calls 58 % of those
-genuine narration at base and only **17 %** at step-60. The fine-tuned model still writes
-"Constraint 1: …" in its analysis headers — that is its ordinary reasoning style — while no longer
-narrating the control instruction, and the regex cannot tell the two apart. **Any regex-based
-meta-discussion comparison across a fine-tune is biased toward understating the change.**
+**But the judge's −50.3 pp is inflated by a truncation cap.** The paper's judge prompt sees only
+the **first 10,000 characters** of the trace; 97 % of base and 87 % of step-60 CoTControl traces
+are longer. Fine-tuning moves narration *later*: the regex's first hit sits at median char 447 at
+base and 6,635 at step-60, and the share of narrating traces whose first hit is already beyond
+the cap rises 15 % → 38 % (in all nine modes). The judge thus misses more fine-tuned narration
+than base narration. Three measures bracket the true drop:
 
-**Disagreement is one-sided.** Regex-only detections run 29–122 per mode; judge-only detections
-0–9. The regex almost never misses real narration; its error is essentially all false positives.
-The judge has its own low-rate noise — it flagged "Wild-type resistance: 100% (Control)" in a
-biology trace — so neither is ground truth, but they bracket it tightly from above and below.
+| measure (CoTControl, base → step-60) | base | step-60 | Δ | bias |
+|---|---:|---:|---:|---|
+| regex, full trace | 94.9 % | 63.8 % | −31.1 pp | `constraint` false positives; may understate |
+| regex, judge's 10,000-char window | 80.5 % | 39.4 % | −41.0 pp | cap-biased upward |
+| LLM judge (10,000-char window) | 75.4 % | 25.1 % | −50.3 pp | cap-biased upward |
 
-Base rates, honestly stated: **~75 % (CoTControl) / ~61 % (ReasonIF)**, not the 95 % / 84 % the
-regex reported. METR's remark that the Qwen3.5 family "uses meta discussion very often" holds
-either way.
+On ReasonIF (shorter traces) the three agree at −37.0 / −33.9 / −34.7 pp. The robust claim is
+**a drop of at least ~30 pp, plausibly 35–45**. An uncapped re-judge (≈ 3.5× the capped run's
+tokens) would settle it and was not run.
+
+**The regex does over-count, but by far less than it first appeared.** On the same 10,000-char
+window the regex−judge gap is +5.1 / +14.3 / +10.3 pp (base / step-60 / step-final) with 93 / 82 /
+86 % agreement, versus +19.5 / +38.7 / +30.8 pp and 80 / 59 / 67 % on the full trace. Of all 2,344
+regex-yes/judge-no rows, 62 % have every match beyond the cap — the judge never saw them. The
+residual over-count is the bare `constraint` substring ("Constraint 1: …" as an analysis header),
+which the fine-tuned model keeps writing while no longer narrating the control instruction; that
+residual grows after fine-tuning, so **a regex-only comparison across a fine-tune still leans
+toward understating the change, and a capped-judge comparison leans toward overstating it.**
+
+**Disagreement is not one-sided.** At step-60, 993 regex-only rows split 406 inside the judge's
+window (genuine false positives plus some judge misses) and 587 beyond it (judge blind); judge-only
+rows: 26. The judge also has low-rate noise of its own ("Wild-type resistance: 100% (Control)" in a
+biology trace). Neither is ground truth; together they bracket it.
+
+Base rates, honestly stated: **~75–80 % (CoTControl) / ~61–68 % (ReasonIF)** on the trace opening,
+higher over the full trace; the regex's 95 % / 84 % is an upper bound. METR's remark that the
+Qwen3.5 family "uses meta discussion very often" holds either way. Full analysis in
+`META_DISCUSSION.md`; numbers in `results/meta_judge/cap_analysis.json`.
 
 ### Measured with METR's regex heuristic (comparability)
 
@@ -442,9 +460,9 @@ change, is not identifiable from this data.
 This may be the more consequential behavioural change. For a CoT-monitoring application, a model
 that stops *announcing* the constraint it is following is a different object from one that
 follows it — arguably a worse one, since the reasoning becomes less self-explaining while the
-underlying behaviour is largely unchanged. We measure it with METR's regex heuristic, not the
-CoTControl paper's LLM judge, so absolute levels should be treated as approximate; the ~25–35 pp
-shift is far too large to be an artefact of that choice.
+underlying behaviour is largely unchanged. Measured both with METR's regex heuristic and the
+CoTControl paper's LLM judge (§5c above); the two bracket the shift at −31 to −50 pp, far too
+large to be an artefact of either measure's known biases.
 
 ---
 
