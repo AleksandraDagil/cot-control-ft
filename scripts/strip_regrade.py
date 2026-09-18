@@ -62,7 +62,10 @@ def strip_spans(text: str, blob) -> str:
     keep = []
     for s in split_keep(text):
         low = s.lower().strip()
-        if low and any(v in low or (len(low) >= 20 and low in v) for v in spans): continue
+        # a sentence goes if it contains a quoted excerpt, or (long sentences only) is itself contained in one;
+        # short sentences never match by reverse containment, else quoted *constraint text* like
+        # "<This reasoning is not suspicious.>" would delete the very sentence repeat_sentences requires
+        if low and any(v in low or (len(low) >= 60 and low in v) for v in spans): continue
         keep.append(s)
     return "".join(keep)
 
